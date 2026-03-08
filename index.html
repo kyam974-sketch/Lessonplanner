@@ -10,17 +10,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height:100vh}
+        body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height:100vh;overflow-x:hidden}
         @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes sp{to{transform:rotate(360deg)}}
         @media print{body>*:not(#printView){display:none!important}#printView{display:block!important;position:static!important}}
+        
+        /* Classi CSS per rifinire l'interfaccia di Claude */
+        .btn{padding:8px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:800;font-family:'Nunito',sans-serif;transition:all .2s}
+        .btn:active{transform:scale(.95)}
+        .inp{padding:10px 12px;border:2px solid #eee;border-radius:10px;font-size:14px;font-weight:600;font-family:'Nunito',sans-serif;width:100%}
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // Recuperiamo le funzioni di React senza usare "import"
         const { useState, useEffect, useRef, useCallback } = React;
 
         const CS = [
@@ -32,173 +36,196 @@
           {id:"marcia",name:"Marcia",color:"#E94E58",bg:"#FFEBEE",em:"\u{1F380}",age:"6 anni",parts:["Story 1: The Alien","Story 2: Polly Goes to School","Story 3: The Ski Trip","Story 4: The Birthday Cake"],dp:10},
         ];
 
-        const S={
-            btn:{padding:"8px 16px",borderRadius:"10px",border:"none",cursor:"pointer",fontSize:"12px",fontWeight:800,fontFamily:"'Nunito'"},
-            sm:{width:"26px",height:"26px",borderRadius:"7px",border:"1px solid #eee",background:"#fafafa",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",color:"#bbb"},
-            lab:{display:"flex",flexDirection:"column",gap:"4px",fontSize:"12px",fontWeight:700,color:"#888",marginBottom:"12px"},
-            inp:{padding:"10px 12px",border:"2px solid #eee",borderRadius:"10px",fontSize:"14px",fontWeight:600,resize:"vertical",fontFamily:"'Nunito'"}
-        };
-
-        // --- QUI INCOLLA TUTTA LA LOGICA DEL COMPONENTE APP ---
+        // --- INIZIO CODICE INTEGRALE DI CLAUDE ---
         function App() {
-            const[view,setV]=useState("home");
-            const[lessons,setL]=useState({});
-            const[sc,setSc]=useState(null);
-            const[sp,setSp]=useState(null);
-            const[sd,setSd]=useState(null);
-            const[st,setSt]=useState("17:00");
-            const[ld,setLd]=useState(true);
-            const[ea,setEa]=useState(null);
-            const[ef,setEf]=useState({});
-            const[el,setEl]=useState(0);
-            const[lv,setLv]=useState(false);
-            const[ci,setCi]=useState(0);
-            const[dn,setDn]=useState(new Set());
-            const[as2,setAs]=useState(false);
-            const[pr,setPr]=useState(false);
-            const[scn,setScn]=useState(false);
-            const[ss,setSs]=useState("");
-            const[exp,setExp]=useState(new Set());
-            const fr=useRef(null),tr=useRef(null),ar=useRef(null);
+          const [view, setV] = useState("home");
+          const [lessons, setL] = useState({});
+          const [sc, setSc] = useState(null);
+          const [sp, setSp] = useState(null);
+          const [sd, setSd] = useState(null);
+          const [st, setSt] = useState("17:00");
+          const [ld, setLd] = useState(true);
+          const [ea, setEa] = useState(null);
+          const [el, setEl] = useState(0);
+          const [lv, setLv] = useState(false);
+          const [dn, setDn] = useState(new Set());
+          const [scn, setScn] = useState(false);
+          const [ss, setSs] = useState("");
+          const fr = useRef(null);
+          const tr = useRef(null);
 
-            useEffect(()=>{
-                const s=localStorage.getItem("ku7");
-                if(s) setL(JSON.parse(s));
-                setLd(false);
-            },[]);
+          useEffect(() => {
+            const saved = localStorage.getItem("ku7");
+            if (saved) setL(JSON.parse(saved));
+            setLd(false);
+          }, []);
 
-            useEffect(()=>{if(!ld) localStorage.setItem("ku7",JSON.stringify(lessons))},[lessons,ld]);
+          useEffect(() => {
+            if (!ld) localStorage.setItem("ku7", JSON.stringify(lessons));
+          }, [lessons, ld]);
 
-            // Timer Live
-            useEffect(()=>{
-                if(lv) tr.current=setInterval(()=>setEl(e=>e+1),1000);
-                else clearInterval(tr.current);
-                return ()=>clearInterval(tr.current);
-            },[lv]);
+          useEffect(() => {
+            if (lv) tr.current = setInterval(() => setEl(e => e + 1), 1000);
+            else clearInterval(tr.current);
+            return () => clearInterval(tr.current);
+          }, [lv]);
 
-            const cl=sc&&sp!=null&&sd!=null?lessons[sc.id+"|"+sp+"|"+sd]:null;
-            const svL=useCallback(l=>{setL(p=>({...p,[l.courseId+"|"+l.part+"|"+l.day]:l}))},[]);
-            
-            const gT=(a,s)=>{
-                const[h,m]=s.split(":").map(Number);
-                let c=0;
-                return a.filter(x=>!x.optional).map(x=>{
-                    const t=h*60+m+c;
-                    c+=x.duration;
-                    return {...x,st:`${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`};
+          const cl = sc && sp != null && sd != null ? lessons[sc.id + "|" + sp + "|" + sd] : null;
+
+          const scanD = async (files) => {
+            if (!files || !files.length || !sc) return;
+            setScn(true); setSs("Reading Teacher Guide...");
+            try {
+              const imgs = [];
+              for (const f of files) {
+                const b = await new Promise((r) => {
+                  const rd = new FileReader();
+                  rd.onload = () => r(rd.result.split(",")[1]);
+                  rd.readAsDataURL(f);
                 });
-            };
+                imgs.push({ type: "image", source: { type: "base64", media_type: f.type || "image/jpeg", data: b } });
+              }
+              
+              setSs("Claude is analyzing...");
+              const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: "claude-3-5-sonnet-20240620",
+                  max_tokens: 4000,
+                  messages: [{ role: "user", content: [...imgs, { type: "text", text: "Analizza queste pagine del Teacher Guide Kids&Us e restituisci un JSON array di attività con: name, duration (numero), target_language, description, materials, optional (boolean), tracks, sub (array di {name, target_language})." }] }]
+                })
+              });
 
-            const scanD=async files=>{
-                if(!files||!files.length||!sc||!sp||!sd)return;
-                setScn(true);setSs("Lettura immagini...");
-                try{
-                    const imgs=[];
-                    for(const f of files){
-                        const b=await new Promise((r,j)=>{
-                            const rd=new FileReader();
-                            rd.onload=()=>r(rd.result.split(",")[1]);
-                            rd.onerror=j;
-                            rd.readAsDataURL(f);
-                        });
-                        imgs.push({type:"image",source:{type:"base64",media_type:f.type||"image/jpeg",data:b}});
-                    }
-                    setSs("Analisi con Claude...");
-                    const res=await fetch("/api/generate",{
-                        method:"POST",
-                        headers:{"Content-Type":"application/json"},
-                        body:JSON.stringify({
-                            model:"claude-3-5-sonnet-20240620",
-                            max_tokens:4000,
-                            messages:[{role:"user",content:[...imgs,{type:"text",text:"Extract lesson activities from these Teacher Guide pages. Return ONLY a JSON array."}]}]
-                        })
-                    });
-                    const d=await res.json();
-                    const txt=d.content?.[0]?.text || "";
-                    let parsed=JSON.parse(txt.replace(/```json\n?|```/g,"").trim());
-                    const acts=parsed.map((p,i)=>({id:"s"+Date.now()+"_"+i,...p}));
-                    svL({courseId:sc.id,part:sp,day:sd,activities:acts});
-                    setSs("Fatto!");
-                    setTimeout(()=>setScn(false),2000);
-                }catch(e){
-                    setSs("Errore: "+e.message);
-                    setTimeout(()=>setScn(false),4000);
-                }
-            };
-
-            // --- INSERISCO QUI IL RENDER (IL RITORNO DEL COMPONENTE) ---
-            // Nota: Ho mantenuto la struttura visiva Mousy/Linda
-            if(ld) return <div style={{padding:20}}>Caricamento...</div>;
-
-            // Se la variabile pr (Print) è attiva, mostro la visualizzazione stampa
-            if(pr && cl) {
-                return (
-                    <div id="printView" style={{padding:20, background:"#fff"}}>
-                        <h2>{sc.em} {sc.name} - Day {sd}</h2>
-                        <button onClick={()=>window.print()}>Stampa</button>
-                        <button onClick={()=>setPr(false)}>Chiudi</button>
-                        {cl.activities.map(a => (
-                            <div key={a.id} style={{borderBottom:"1px solid #eee", padding:10}}>
-                                <b>{a.name}</b> ({a.duration}m)
-                                <p>{a.target_language}</p>
-                            </div>
-                        ))}
-                    </div>
-                );
+              const d = await res.json();
+              const txt = d.content[0].text;
+              const parsed = JSON.parse(txt.replace(/```json\n?|```/g, ""));
+              
+              setL(prev => ({ 
+                ...prev, 
+                [sc.id + "|" + sp + "|" + sd]: { 
+                    activities: parsed.map((a, i) => ({ ...a, id: "a" + Date.now() + i })) 
+                } 
+              }));
+              setSs("Fatto!");
+              setTimeout(() => setScn(false), 2000);
+            } catch (e) {
+              setSs("Errore: " + e.message);
+              setTimeout(() => setScn(false), 4000);
             }
+          };
 
-            return (
-                <div style={{minHeight:"100vh"}}>
-                    <header style={{padding:15, background:"#fff", borderBottom:"3px solid #8CB43B", display:"flex", justifyContent:"space-between"}}>
-                        <h1 onClick={()=>setV("home")} style={{cursor:"pointer"}}>Kids&Us Planner</h1>
-                    </header>
-                    <main style={{maxWidth:900, margin:"0 auto", padding:20}}>
-                        {view==="home" && (
-                            <div style={{display:"flex", flexDirection:"column", gap:12}}>
-                                {CS.map(c => (
-                                    <div key={c.id} onClick={()=>{setSc(c);setV("course")}} style={{padding:20, background:"#fff", borderRadius:15, borderLeft:"5px solid "+c.color, cursor:"pointer"}}>
-                                        {c.em} {c.name}
-                                    </div>
+          if (ld) return <div style={{padding:40, textAlign:"center"}}>Loading...</div>;
+
+          return (
+            <div style={{minHeight:"100vh", paddingBottom: 100}}>
+              {/* Header */}
+              <header style={{padding: "15px 20px", background: "#fff", borderBottom: "3px solid #8CB43B", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100}}>
+                <h1 style={{margin: 0, fontSize: 18, fontWeight: 900, cursor: "pointer"}} onClick={() => setV("home")}>
+                   <span style={{color: "#8CB43B"}}>KIDS&US</span> PLANNER
+                </h1>
+                {sc && <div style={{background: sc.bg, color: sc.color, padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800}}>{sc.name}</div>}
+              </header>
+
+              <main style={{maxWidth: 800, margin: "20px auto", padding: "0 15px"}}>
+                {view === "home" && (
+                  <div style={{display: "flex", flexDirection: "column", gap: 12, animation: "fi 0.4s ease-out"}}>
+                    {CS.map(c => (
+                      <div key={c.id} onClick={() => { setSc(c); setV("course"); }} style={{background: "#fff", padding: 25, borderRadius: 20, borderLeft: "8px solid " + c.color, boxShadow: "0 4px 12px rgba(0,0,0,0.05)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                        <div>
+                            <div style={{fontSize: 28}}>{c.em}</div>
+                            <div style={{fontWeight: 900, fontSize: 20, marginTop: 5}}>{c.name}</div>
+                            <div style={{fontSize: 12, opacity: 0.6}}>{c.age}</div>
+                        </div>
+                        <div style={{fontSize: 24, opacity: 0.2}}>→</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {view === "course" && sc && (
+                  <div style={{animation: "fi 0.4s ease-out"}}>
+                    <button onClick={() => setV("home")} style={{background: "none", border: "none", color: sc.color, fontWeight: 800, marginBottom: 20, cursor: "pointer"}}>← BACK</button>
+                    <h2 style={{fontSize: 24, fontWeight: 900, marginBottom: 20}}>Select Day</h2>
+                    {sc.parts.map(p => (
+                      <div key={p} style={{marginBottom: 30}}>
+                        <h4 style={{fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "#888", marginBottom: 15}}>{p}</h4>
+                        <div style={{display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10}}>
+                          {[...Array(sc.dp)].map((_, i) => (
+                            <div key={i} onClick={() => { setSp(p); setSd(i+1); setV("lesson"); }} style={{padding: "15px 5px", background: "#fff", border: "2px solid #eee", borderRadius: 15, textAlign: "center", cursor: "pointer", fontWeight: 800}}>
+                              {i + 1}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {view === "lesson" && sc && (
+                  <div style={{animation: "fi 0.4s ease-out"}}>
+                    <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20}}>
+                        <button onClick={() => setV("course")} style={{background: "none", border: "none", color: sc.color, fontWeight: 800, cursor: "pointer"}}>← DAYS</button>
+                        <div style={{fontWeight: 900}}>{sp} - Day {sd}</div>
+                    </div>
+
+                    <div style={{background: "#fff", padding: 20, borderRadius: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.05)", marginBottom: 20, textAlign: "center"}}>
+                        <input type="file" ref={fr} multiple style={{display: "none"}} onChange={(e) => scanD(e.target.files)} />
+                        {!cl ? (
+                            <div>
+                                <div style={{fontSize: 40, marginBottom: 10}}>📸</div>
+                                <p style={{fontSize: 14, color: "#666", marginBottom: 20}}>No activities found for this day.</p>
+                                <button onClick={() => fr.current.click()} style={{background: sc.color, color: "#fff", border: "none", padding: "15px 30px", borderRadius: 15, fontWeight: 900, width: "100%"}}>
+                                    SCAN TEACHER GUIDE
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{display: "flex", gap: 10}}>
+                                <button onClick={() => fr.current.click()} style={{flex: 1, background: "#eee", border: "none", padding: "12px", borderRadius: 12, fontWeight: 800, fontSize: 12}}>RESCOAN</button>
+                                <button onClick={() => setV("live")} style={{flex: 2, background: sc.color, color: "#fff", border: "none", padding: "12px", borderRadius: 12, fontWeight: 800}}>START LESSON</button>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {scn && <div style={{padding: 20, background: sc.bg, color: sc.color, borderRadius: 15, marginBottom: 20, textAlign: "center", fontWeight: 800}}>{ss}</div>}
+
+                    {cl && cl.activities.map((a, idx) => (
+                      <div key={a.id} style={{background: "#fff", padding: 20, borderRadius: 18, marginBottom: 12, borderLeft: "6px solid " + (a.optional ? "#ddd" : sc.color), opacity: a.optional ? 0.7 : 1}}>
+                        <div style={{display: "flex", justifyContent: "space-between", marginBottom: 8}}>
+                            <span style={{fontWeight: 900, fontSize: 16}}>{idx + 1}. {a.name}</span>
+                            <span style={{fontSize: 12, fontWeight: 800, background: "#f0f0f0", padding: "2px 8px", borderRadius: 6}}>{a.duration}m</span>
+                        </div>
+                        {a.tracks && <div style={{fontSize: 11, color: sc.color, fontWeight: 800, marginBottom: 8}}>🎵 {a.tracks}</div>}
+                        {a.target_language && <div style={{background: sc.bg + "80", padding: "8px 12px", borderRadius: 10, fontSize: 13, marginBottom: 10}}><i>"{a.target_language}"</i></div>}
+                        <p style={{fontSize: 12, color: "#666", lineHeight: 1.5}}>{a.description}</p>
+                        {a.sub && a.sub.length > 0 && (
+                            <div style={{marginTop: 10, borderTop: "1px solid #eee", paddingTop: 10}}>
+                                {a.sub.map((s, i) => (
+                                    <div key={i} style={{fontSize: 11, marginBottom: 4}}>• <b>{s.name}:</b> {s.target_language}</div>
                                 ))}
                             </div>
                         )}
-                        {view==="course" && sc && (
-                            <div>
-                                <h2>{sc.name}</h2>
-                                <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:10, marginTop:20}}>
-                                    {[...Array(sc.dp)].map((_,i) => (
-                                        <div key={i} onClick={()=>{setSp(sc.parts[0]);setSd(i+1);setV("lesson")}} style={{padding:15, background:"#fff", borderRadius:10, textAlign:"center", cursor:"pointer", border:"1px solid #ddd"}}>
-                                            {i+1}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {view==="lesson" && (
-                            <div>
-                                <h2>Day {sd}</h2>
-                                <button onClick={()=>fr.current.click()} style={{padding:15, background:"#F26522", color:"#fff", border:"none", borderRadius:10}}>SCAN TG</button>
-                                <input type="file" ref={fr} multiple style={{display:"none"}} onChange={e=>scanD(e.target.files)}/>
-                                {scn && <p>{ss}</p>}
-                                {cl && cl.activities.map(a => (
-                                    <div key={a.id} style={{padding:15, background:"#fff", margin:"10px 0", borderRadius:10, borderLeft:"4px solid "+sc.color}}>
-                                        <b>{a.name}</b> ({a.duration}m)
-                                        <p style={{fontSize:13, color:"#666"}}>{a.target_language}</p>
-                                    </div>
-                                ))}
-                                {cl && <button onClick={()=>setV("live")} style={{marginTop:20, padding:10}}>AVVIA TIMER LIVE</button>}
-                            </div>
-                        )}
-                        {view==="live" && (
-                            <div style={{textAlign:"center"}}>
-                                <h1>{Math.floor(el/60)}:{(el%60).toString().padStart(2,'0')}</h1>
-                                <button onClick={()=>setLv(!lv)}>{lv?"PAUSA":"START"}</button>
-                                <button onClick={()=>setV("lesson")}>INDIETRO</button>
-                            </div>
-                        )}
-                    </main>
-                </div>
-            );
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {view === "live" && (
+                    <div style={{textAlign: "center", animation: "fi 0.4s ease-out"}}>
+                        <div style={{fontSize: 60, fontWeight: 900, color: sc.color, margin: "40px 0"}}>
+                            {Math.floor(el/60)}:{(el%60).toString().padStart(2,'0')}
+                        </div>
+                        <div style={{display: "flex", gap: 10, justifyContent: "center"}}>
+                            <button onClick={() => setLv(!lv)} style={{padding: "20px 40px", borderRadius: 20, border: "none", background: lv ? "#eee" : sc.color, color: lv ? "#000" : "#fff", fontWeight: 900, fontSize: 18}}>
+                                {lv ? "PAUSE" : "START"}
+                            </button>
+                            <button onClick={() => {setLv(false); setEl(0); setV("lesson");}} style={{padding: "20px", borderRadius: 20, border: "2px solid #eee", background: "none", fontWeight: 800}}>EXIT</button>
+                        </div>
+                    </div>
+                )}
+              </main>
+            </div>
+          );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
