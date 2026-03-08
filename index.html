@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Kids&Us Lesson Planner</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -14,602 +16,193 @@ body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height
 @media print{body>*:not(#printView){display:none!important}#printView{display:block!important;position:static!important}}
 .btn{padding:8px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:800;font-family:'Nunito',sans-serif}
 .sm{width:26px;height:26px;border-radius:7px;border:1px solid #eee;background:#fafafa;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#bbb}
-input,textarea,select{font-family:'Nunito',sans-serif;font-weight:600}
-.card{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 6px #0001}
-.tl-box{margin:6px 0 2px;padding:6px 10px;border-radius:8px;border-left:3px solid var(--cc)}
-.spinner{width:20px;height:20px;border:3px solid #F26522;border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;flex-shrink:0}
+.lab{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#888;margin-bottom:12px}
+.inp{padding:10px 12px;border:2px solid #eee;border-radius:10px;font-size:14px;font-weight:600;resize:vertical;font-family:'Nunito',sans-serif}
 </style>
 </head>
 <body>
-<div id="app"></div>
-<div id="printView" style="display:none"></div>
+<div id="root"></div>
 
-<script>
-// ─── DATA ──────────────────────────────────────────────────
-const CS=[
-{id:"mousy",name:"Mousy",color:"#8CB43B",bg:"#F0F7E1",em:"\u{1F42D}",age:"1 anno",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
-{id:"linda",name:"Linda",color:"#F26522",bg:"#FFF0E6",em:"\u{1F431}",age:"2 anni",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
-{id:"sam",name:"Sam",color:"#00B3B0",bg:"#E0F7F7",em:"\u{1F9F8}",age:"3 anni",parts:["Story 1: Happy Birthday","Story 2: The Park","Story 3: The Zoo","Story 4: The Picnic"],dp:10},
-{id:"emma",name:"Emma",color:"#E878A0",bg:"#FFF0F5",em:"\u{1F98B}",age:"4 anni",parts:["Story 1: Sweets","Story 2: Eggs","Story 3: Bath","Story 4"],dp:10},
-{id:"oliver",name:"Oliver",color:"#00B3B0",bg:"#E0F7F7",em:"\u{1F438}",age:"5 anni",parts:["Story 1: Wobbly Tooth","Story 2: Flu","Story 3: Baby","Story 4"],dp:10},
-{id:"marcia",name:"Marcia",color:"#E94E58",bg:"#FFEBEE",em:"\u{1F380}",age:"6 anni",parts:["Story 1: The Alien","Story 2: Polly Goes to School","Story 3: The Ski Trip","Story 4: The Birthday Cake"],dp:10}
+<script type="text/babel">
+// Sostituisco gli import con l'accesso globale a React
+const { useState, useEffect, useRef, useCallback } = React;
+
+const CS = [
+  {id:"mousy",name:"Mousy",color:"#8CB43B",bg:"#F0F7E1",em:"\u{1F42D}",age:"1 anno",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
+  {id:"linda",name:"Linda",color:"#F26522",bg:"#FFF0E6",em:"\u{1F431}",age:"2 anni",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
+  {id:"sam",name:"Sam",color:"#00B3B0",bg:"#E0F7F7",em:"\u{1F9F8}",age:"3 anni",parts:["Story 1: Happy Birthday","Story 2: The Park","Story 3: The Zoo","Story 4: The Picnic"],dp:10},
+  {id:"emma",name:"Emma",color:"#E878A0",bg:"#FFF0F5",em:"\u{1F98B}",age:"4 anni",parts:["Story 1: Sweets","Story 2: Eggs","Story 3: Bath","Story 4"],dp:10},
+  {id:"oliver",name:"Oliver",color:"#00B3B0",bg:"#E0F7F7",em:"\u{1F438}",age:"5 anni",parts:["Story 1: Wobbly Tooth","Story 2: Flu","Story 3: Baby","Story 4"],dp:10},
+  {id:"marcia",name:"Marcia",color:"#E94E58",bg:"#FFEBEE",em:"\u{1F380}",age:"6 anni",parts:["Story 1: The Alien","Story 2: Polly Goes to School","Story 3: The Ski Trip","Story 4: The Birthday Cake"],dp:10},
 ];
 
-// ─── STATE ─────────────────────────────────────────────────
-let state={view:"home",lessons:{},routines:{},sc:null,sp:null,sd:null,st:"17:00",
-  ea:null,ef:{},el:0,lv:false,ci:0,dn:new Set(),as2:false,scn:false,ss:"",exp:new Set()};
-let timerRef=null,autoRef=null;
+function App(){
+  const[view,setV]=useState("home");
+  const[lessons,setL]=useState({});
+  const[sc,setSc]=useState(null);
+  const[sp,setSp]=useState(null);
+  const[sd,setSd]=useState(null);
+  const[st,setSt]=useState("17:00");
+  const[ld,setLd]=useState(true);
+  const[ea,setEa]=useState(null);
+  const[ef,setEf]=useState({});
+  const[el,setEl]=useState(0);
+  const[lv,setLv]=useState(false);
+  const[ci,setCi]=useState(0);
+  const[dn,setDn]=useState(new Set());
+  const[as2,setAs]=useState(false);
+  const[pr,setPr]=useState(false);
+  const[scn,setScn]=useState(false);
+  const[ss,setSs]=useState("");
+  const[exp,setExp]=useState(new Set());
+  const fr=useRef(null),tr=useRef(null),ar=useRef(null);
 
-function load(){
-  try{state.lessons=JSON.parse(localStorage.getItem("ku8-l")||"{}")}catch{}
-  try{state.routines=JSON.parse(localStorage.getItem("ku8-r")||"{}")}catch{}
-}
-function saveL(){localStorage.setItem("ku8-l",JSON.stringify(state.lessons))}
-function saveR(){localStorage.setItem("ku8-r",JSON.stringify(state.routines))}
+  useEffect(()=>{
+    const s = localStorage.getItem("ku7");
+    if(s) setL(JSON.parse(s));
+    setLd(false);
+  },[]);
 
-// ─── HELPERS ───────────────────────────────────────────────
-const gk=(c,p,d)=>c+"|"+p+"|"+d;
-const rk=(c,p)=>c+"|"+p;
-function gT(a,s){const[h,m]=s.split(":").map(Number);let c=0;return a.filter(x=>!x.optional).map(x=>{const t=h*60+m+c;c+=x.duration;return Object.assign({},x,{st:(Math.floor(t/60)%24+"").padStart(2,"0")+":"+(t%60+"").padStart(2,"0")})})}
-function td(a){return a.filter(x=>!x.optional).reduce((s,x)=>s+x.duration,0)}
-function ft(s){return(Math.floor(s/60)+"").padStart(2,"0")+":"+(s%60+"").padStart(2,"0")}
-function h(tag,attrs,children){
-  const el=document.createElement(tag);
-  if(attrs)Object.entries(attrs).forEach(([k,v])=>{
-    if(k==="style"&&typeof v==="object")Object.assign(el.style,v);
-    else if(k.startsWith("on"))el.addEventListener(k.slice(2).toLowerCase(),v);
-    else el.setAttribute(k,v);
-  });
-  if(children!=null){
-    if(Array.isArray(children))children.forEach(c=>{if(c)el.appendChild(typeof c==="string"?document.createTextNode(c):c)});
-    else if(typeof children==="string")el.textContent=children;
-    else el.appendChild(children);
-  }
-  return el;
-}
-
-// ─── AI SCAN ───────────────────────────────────────────────
-async function readFiles(files){
-  const imgs=[];
-  for(const f of files){
-    const b=await new Promise((r,j)=>{const rd=new FileReader();rd.onload=()=>r(rd.result.split(",")[1]);rd.onerror=j;rd.readAsDataURL(f)});
-    imgs.push({type:"image",source:{type:"base64",media_type:f.type||"image/jpeg",data:b}});
-  }
-  return imgs;
-}
-
-async function aiCall(imgs,prompt){
-  const res=await fetch("/api/generate",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,
-      messages:[{role:"user",content:[...imgs,{type:"text",text:prompt}]}]})
-  });
-  const d=await res.json();
-  if(d.error)throw new Error(d.error);
-  const txt=d.content?.map(c=>c.type==="text"?c.text:"").join("")||"";
-  let p;
-  try{p=JSON.parse(txt.replace(/```json\n?|```/g,"").trim())}
-  catch{const m=txt.match(/\[[\s\S]*\]/);if(m)p=JSON.parse(m[0]);else throw new Error("Risposta AI non valida")}
-  if(!Array.isArray(p))throw new Error("Formato non valido");
-  return p;
-}
-
-async function scanRoutines(files){
-  if(!files||!files.length)return;
-  state.scn=true;state.ss="Analisi routine...";render();
-  try{
-    const imgs=await readFiles(files);
-    state.ss="AI estrae le routine...";render();
-    var pr="Analyze the ROUTINE PAGES from Kids&Us Teacher Guide: "+state.sc.name+" - "+state.sp+".\n\n";
-    pr+="Extract ALL routine variants. Group by type.\n";
-    pr+="For routines with Version A and Version B, create separate entries.\n\n";
-    pr+="For EACH: name (include version if applicable, e.g. 'Goodbye - Version A: Good Night!'), ";
-    pr+="type ('welcome'/'warmup'/'goodbye'), duration (minutes), tracks, ";
-    pr+="target_language (EXACT verbatim bold/quoted phrases, separate with ' | '), ";
-    pr+="description (1 sentence max), materials.\n\n";
-    pr+="JSON array ONLY.";
-    const parsed=await aiCall(imgs,pr);
-    const key=rk(state.sc.id,state.sp);
-    state.routines[key]=parsed;saveR();
-    state.ss="Fatto! "+parsed.length+" routine salvate";render();
-    setTimeout(()=>{state.ss="";state.scn=false;render()},3000);
-  }catch(e){state.ss="Errore: "+e.message;render();setTimeout(()=>{state.ss="";state.scn=false;render()},4000)}
-}
-
-async function scanDay(files){
-  if(!files||!files.length)return;
-  state.scn=true;state.ss="Lettura...";render();
-  try{
-    const imgs=await readFiles(files);
-    state.ss="AI analizza "+imgs.length+" pagine...";render();
-    var pr="Analyze Kids&Us Teacher Guide: "+state.sc.name+" - "+state.sp+" - Day "+state.sd+".\n\n";
-    pr+="RULES:\n";
-    pr+="1. Extract EXACTLY the numbered activities from the LESSON PLAN section, in EXACT order.\n";
-    pr+="2. Warm-Up Routines = ONE single block (usually 15min). Do NOT split into sub-activities.\n";
-    pr+="3. Use EXACT duration from parentheses, e.g. ACTIVITY 1: LET'S WASH EMMA! (6') = 6 min.\n";
-    pr+="4. Total should be ~60min (kids) or ~45min (babies).\n";
-    pr+="5. target_language: ONLY exact bold/quoted phrases. VERBATIM. Separate with ' | '\n";
-    pr+="6. description: MAX 1 sentence.\n";
-    pr+="7. materials: brief list.\n";
-    pr+="8. BONUS/extra time: optional=true\n\n";
-    pr+="JSON array ONLY: [{name, duration, tracks, target_language, description, materials, optional}]";
-    const parsed=await aiCall(imgs,pr);
-    
-    // Get routines for this part to inject into warm-up
-    const rKey=rk(state.sc.id,state.sp);
-    const rts=state.routines[rKey]||null;
-    
-    const acts=parsed.map((p,i)=>{
-      const act={id:"s"+Date.now()+"_"+i,name:p.name||"?",duration:p.duration||3,
-        tracks:p.tracks||"",targetLanguage:p.target_language||"",
-        description:p.description||"",materials:p.materials||"",
-        optional:!!p.optional,sub:null,routineVersions:null};
-      // If this is the warm-up and we have saved routines, attach them
-      if(rts&&(p.name||"").toLowerCase().includes("warm")){
-        act.sub=rts.filter(r=>r.type==="welcome"||r.type==="warmup");
-      }
-      if(rts&&(p.name||"").toLowerCase().includes("goodbye")){
-        act.routineVersions=rts.filter(r=>r.type==="goodbye");
-      }
-      return act;
-    });
-    
-    const key=gk(state.sc.id,state.sp,state.sd);
-    state.lessons[key]={courseId:state.sc.id,part:state.sp,day:state.sd,activities:acts};
-    saveL();
-    const tot=td(acts);
-    state.ss="Fatto! "+acts.length+" attivita, "+tot+" min";render();
-    setTimeout(()=>{state.ss="";state.scn=false;render()},3000);
-  }catch(e){state.ss="Errore: "+e.message;render();setTimeout(()=>{state.ss="";state.scn=false;render()},4000)}
-}
-
-// ─── TIMER ─────────────────────────────────────────────────
-function startTimer(){
-  if(timerRef)return;
-  state.lv=true;
-  timerRef=setInterval(()=>{state.el++;
-    // Update current activity index
-    const cl=getCl();if(cl){const ta=gT(cl.activities,state.st);let c=0;
-    for(let j=0;j<ta.length;j++){c+=ta[j].duration;if(state.el/60<c){state.ci=j;break}}}
-    render()},1000);
-}
-function stopTimer(){state.lv=false;clearInterval(timerRef);timerRef=null;render()}
-function resetTimer(){stopTimer();state.el=0;state.ci=0;state.dn=new Set();render()}
-function getCl(){
-  if(!state.sc||!state.sp||state.sd==null)return null;
-  return state.lessons[gk(state.sc.id,state.sp,state.sd)]||null;
-}
-
-// ─── RENDER ────────────────────────────────────────────────
-function render(){
-  const app=document.getElementById("app");
-  app.innerHTML="";
-  const cc=state.sc?.color||"#8CB43B";
-  const cbg=state.sc?.bg||"#F0F7E1";
-  document.documentElement.style.setProperty("--cc",cc);
+  useEffect(()=>{if(!ld) localStorage.setItem("ku7",JSON.stringify(lessons))},[lessons,ld]);
   
-  // Header
-  const hdr=h("header",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 20px",background:"#fff",borderBottom:"3px solid #8CB43B",position:"sticky",top:"0",zIndex:"100",flexWrap:"wrap",gap:"8px"}});
-  const logo=h("div",{style:{display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"},onClick:()=>{state.view="home";state.sc=null;state.sp=null;state.sd=null;stopTimer();render()}});
-  logo.appendChild(h("div",{style:{width:"38px",height:"38px",borderRadius:"11px",background:"linear-gradient(135deg,#8CB43B,#A5C74A)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px"}},"\u{1F42D}"));
-  const logoTxt=h("div");
-  logoTxt.innerHTML='<h1 style="margin:0;font-size:15px;font-weight:800"><span style="color:#8CB43B">Kids</span><span style="color:#F26522">&</span><span style="color:#E878A0">Us</span> Planner</h1>';
-  logo.appendChild(logoTxt);
-  hdr.appendChild(logo);
-  
-  // Breadcrumb
-  if(state.view!=="home"){
-    const nav=h("nav",{style:{fontSize:"12px",color:"#888",fontWeight:"600"}});
-    const home=h("span",{style:{cursor:"pointer",color:"#8CB43B"},onClick:()=>{state.view="home";state.sc=null;render()}},"Home");
-    nav.appendChild(home);
-    if(state.sc){
-      nav.appendChild(h("span",null," / "));
-      nav.appendChild(h("span",{style:{cursor:"pointer",color:cc},onClick:()=>{state.view="course";state.sp=null;state.sd=null;render()}},state.sc.em+" "+state.sc.name));
-    }
-    if(state.sp&&state.sd){nav.appendChild(h("span",null," / "+state.sp+" \u2014 Day "+state.sd))}
-    if(state.sp&&!state.sd&&state.view==="routines"){nav.appendChild(h("span",null," / "+state.sp+" \u2014 Routine"))}
-    hdr.appendChild(nav);
-  }
-  app.appendChild(hdr);
-  
-  const main=h("div",{style:{maxWidth:"900px",margin:"0 auto",padding:"20px 16px"}});
-  
-  // ── HOME ──
-  if(state.view==="home"){
-    const welcome=h("div",{style:{background:"linear-gradient(135deg,#F0F7E1,#E0F7F7,#FFF0F5)",borderRadius:"20px",padding:"28px 24px",marginBottom:"12px"}});
-    welcome.innerHTML='<h2 style="font-size:24px;font-weight:900">Ciao Chiara! \u{1F44B}</h2><p style="margin-top:8px;font-size:14px;color:#666;font-weight:600">Seleziona un corso per gestire le lezioni.</p>';
-    main.appendChild(welcome);
-    
-    CS.forEach((c,i)=>{
-      const n=Object.keys(state.lessons).filter(k=>k.startsWith(c.id+"|")).length;
-      const nR=Object.keys(state.routines).filter(k=>k.startsWith(c.id+"|")).length;
-      const card=h("div",{style:{display:"flex",alignItems:"center",gap:"14px",background:"#fff",borderRadius:"16px",padding:"16px 20px",cursor:"pointer",borderLeft:"5px solid "+c.color,boxShadow:"0 2px 8px #0001",marginBottom:"10px",animation:"fi .4s "+(i*80)+"ms both"},onClick:()=>{state.sc=c;state.view="course";render()}});
-      card.appendChild(h("div",{style:{width:"50px",height:"50px",borderRadius:"14px",background:c.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"28px"}},c.em));
-      const info=h("div",{style:{flex:"1"}});
-      info.innerHTML='<h3 style="font-size:17px;font-weight:800">'+c.name+'</h3><p style="font-size:12px;color:#888;font-weight:600">'+c.age+(n?" \u2014 "+n+" lezioni":"")+(nR?" \u2014 "+nR+" routine":"")+'</p>';
-      card.appendChild(info);
-      card.appendChild(h("span",{style:{fontSize:"20px",color:c.color,fontWeight:"800"}},"\u{2192}"));
-      main.appendChild(card);
-    });
-  }
-  
-  // ── COURSE ──
-  else if(state.view==="course"&&state.sc){
-    const hd=h("div",{style:{display:"flex",alignItems:"center",gap:"16px",padding:"20px 0",borderBottom:"3px solid "+cc}});
-    hd.appendChild(h("div",{style:{width:"60px",height:"60px",borderRadius:"16px",background:cbg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"32px"}},state.sc.em));
-    const hdInfo=h("div");
-    hdInfo.innerHTML='<h2 style="font-size:26px;font-weight:900">'+state.sc.name+'</h2><p style="font-size:14px;color:#888;font-weight:600">'+state.sc.age+'</p>';
-    hd.appendChild(hdInfo);
-    main.appendChild(hd);
-    
-    state.sc.parts.forEach(p=>{
-      const sec=h("div",{style:{marginTop:"24px"}});
-      
-      // Part header with routine button
-      const partHdr=h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px",flexWrap:"wrap",gap:"8px"}});
-      partHdr.appendChild(h("h3",{style:{fontSize:"15px",fontWeight:"800",color:cc}},p));
-      
-      const rtKey=rk(state.sc.id,p);
-      const hasRt=!!state.routines[rtKey];
-      const nRt=hasRt?state.routines[rtKey].length:0;
-      
-      const rtBtn=h("button",{class:"btn",style:{background:hasRt?"#E8F5E9":"#FFF3E0",color:hasRt?"#2E7D32":"#E65100",border:hasRt?"1px solid #A5D6A7":"1px dashed #FFB74D",fontSize:"11px",padding:"5px 12px"},onClick:()=>{state.sp=p;state.sd=null;state.view="routines";render()}},hasRt?"\u{1F504} "+nRt+" routine":"\u{1F4F8} Carica routine");
-      partHdr.appendChild(rtBtn);
-      sec.appendChild(partHdr);
-      
-      // Day grid
-      const grid=h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(78px,1fr))",gap:"8px"}});
-      for(let d=1;d<=state.sc.dp;d++){
-        const k=gk(state.sc.id,p,d);
-        const has=!!state.lessons[k];
-        const hasTL=has&&state.lessons[k].activities.some(a=>a.targetLanguage);
-        const cell=h("div",{style:{padding:"10px 6px",borderRadius:"10px",border:"2px solid "+(has?cc:"#e0e0e0"),background:has?cbg:"#fff",textAlign:"center",cursor:"pointer",position:"relative"},onClick:()=>{state.sp=p;state.sd=d;state.view="lesson";render()}});
-        cell.appendChild(h("span",{style:{fontSize:"13px",fontWeight:"800",color:has?cc:"#bbb"}},""+d));
-        if(has)cell.appendChild(h("div",{style:{fontSize:"9px",color:"#888"}},state.lessons[k].activities.length+" att."));
-        else cell.appendChild(h("div",{style:{fontSize:"9px",color:"#ccc"}},"vuoto"));
-        if(hasTL){const dot=h("div",{style:{position:"absolute",top:"3px",right:"3px",width:"7px",height:"7px",borderRadius:"4px",background:"#8CB43B"}});cell.appendChild(dot)}
-        grid.appendChild(cell);
-      }
-      sec.appendChild(grid);
-      main.appendChild(sec);
-    });
-  }
-  
-  // ── ROUTINES ──
-  else if(state.view==="routines"&&state.sc&&state.sp){
-    const hd=h("div",{style:{display:"flex",alignItems:"center",gap:"12px",marginBottom:"20px"}});
-    hd.innerHTML='<span style="font-size:30px">\u{1F504}</span><div><h2 style="font-size:20px;font-weight:800">Routine \u2014 '+state.sp+'</h2><p style="font-size:13px;color:#888;font-weight:600">'+state.sc.em+' '+state.sc.name+'</p></div>';
-    main.appendChild(hd);
-    
-    // Status
-    if(state.scn){
-      const st=h("div",{style:{padding:"14px 18px",background:state.ss.includes("Fatto")?"#E8F5E9":state.ss.includes("Err")?"#FFEBEE":"#FFF3E0",borderRadius:"12px",marginBottom:"14px",fontSize:"13px",fontWeight:"700",display:"flex",alignItems:"center",gap:"10px"}});
-      if(!state.ss.includes("Fatto")&&!state.ss.includes("Err"))st.appendChild(h("div",{class:"spinner"}));
-      st.appendChild(h("span",null,state.ss));
-      main.appendChild(st);
-    }
-    
-    const rtKey=rk(state.sc.id,state.sp);
-    const cR=state.routines[rtKey];
-    
-    if(!cR&&!state.scn){
-      const empty=h("div",{style:{textAlign:"center",padding:"48px 24px",background:"#fff",borderRadius:"20px",boxShadow:"0 2px 12px #0001"}});
-      empty.innerHTML='<div style="font-size:56px;margin-bottom:12px">\u{1F504}</div><h3 style="font-size:18px;font-weight:800;margin-bottom:8px">Nessuna routine</h3><p style="font-size:13px;color:#888;font-weight:600;margin-bottom:20px;max-width:420px;margin-left:auto;margin-right:auto">Fotografa le pagine della TG che descrivono Welcome, Warm-up e Goodbye per <b>'+state.sp+'</b>. Basta una volta: poi si inseriscono automaticamente in ogni Day.</p>';
-      const scanBtn=h("button",{class:"btn",style:{background:"#F26522",color:"#fff",fontSize:"15px",padding:"12px 28px"},onClick:()=>document.getElementById("rtFileInput").click()},"\u{1F4F8} Scansiona routine");
-      empty.appendChild(scanBtn);
-      const fi=h("input",{type:"file",id:"rtFileInput",accept:"image/*",multiple:"true",style:{display:"none"},onChange:(e)=>{scanRoutines(e.target.files);e.target.value=""}});
-      empty.appendChild(fi);
-      main.appendChild(empty);
-    }
-    
-    if(cR&&cR.length>0){
-      const btns=h("div",{style:{display:"flex",gap:"8px",marginBottom:"16px"}});
-      const rescanBtn=h("button",{class:"btn",style:{background:"#F26522",color:"#fff"},onClick:()=>document.getElementById("rtFileInput2").click()},"\u{1F4F8} Ri-scansiona");
-      btns.appendChild(rescanBtn);
-      btns.appendChild(h("input",{type:"file",id:"rtFileInput2",accept:"image/*",multiple:"true",style:{display:"none"},onChange:(e)=>{scanRoutines(e.target.files);e.target.value=""}}));
-      btns.appendChild(h("button",{class:"btn",style:{background:"#f0f0f0",color:"#888"},onClick:()=>{state.view="course";state.sp=null;render()}},"Torna"));
-      main.appendChild(btns);
-      
-      ["welcome","warmup","goodbye"].forEach(type=>{
-        const items=cR.filter(r=>r.type===type);
-        if(!items.length)return;
-        const label=type==="welcome"?"\u{1F44B} Welcome":type==="warmup"?"\u{1F3B5} Warm-up":"\u{1F31C} Goodbye";
-        main.appendChild(h("h4",{style:{fontSize:"13px",fontWeight:"800",color:cc,margin:"12px 0 6px"}},label));
-        items.forEach(r=>{
-          const card=h("div",{class:"card",style:{borderLeft:"5px solid "+cc,marginBottom:"6px"}});
-          card.innerHTML='<div style="font-size:15px;font-weight:800">'+r.name+' <span style="font-size:11px;color:#bbb">'+(r.duration||"")+'m '+(r.tracks||"")+'</span></div>';
-          if(r.target_language)card.innerHTML+='<div style="margin:6px 0 4px;padding:8px 12px;background:'+cc+'08;border-radius:10px;border-left:3px solid '+cc+'"><span style="font-size:9px;font-weight:800;color:'+cc+';text-transform:uppercase">TARGET LANGUAGE</span><br><span style="font-size:13px;font-weight:600;line-height:1.5">'+r.target_language+'</span></div>';
-          if(r.description)card.innerHTML+='<p style="font-size:12px;color:#888;margin-top:4px">'+r.description+'</p>';
-          if(r.materials)card.innerHTML+='<p style="font-size:11px;color:#00B3B0;margin-top:3px;font-weight:600">'+r.materials+'</p>';
-          main.appendChild(card);
+  useEffect(()=>{
+    if(lv) tr.current=setInterval(()=>setEl(e=>e+1),1000);
+    else clearInterval(tr.current);
+    return ()=>clearInterval(tr.current)
+  },[lv]);
+
+  useEffect(()=>{
+    if(as2&&view==="live"&&!lv){
+      ar.current=setInterval(()=>{
+        const n=new Date(),p=st.split(":").map(Number);
+        if(n.getHours()===p[0]&&n.getMinutes()===p[1]&&n.getSeconds()<2){setLv(true);setAs(false)}
+      },1000)
+    } else clearInterval(ar.current);
+    return ()=>clearInterval(ar.current)
+  },[as2,view,lv,st]);
+
+  const cl=sc&&sp!=null&&sd!=null?lessons[sc.id+"|"+sp+"|"+sd]:null;
+  const svL=useCallback(l=>{setL(p=>({...p,[l.courseId+"|"+l.part+"|"+l.day]:l}))},[]);
+  const gT=(a,s)=>{const[h,m]=s.split(":").map(Number);let c=0;return a.filter(x=>!x.optional).map(x=>{const t=h*60+m+c;c+=x.duration;return {...x,st:`${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`}})};
+  const td=a=>a.filter(x=>!x.optional).reduce((s,x)=>s+x.duration,0);
+  const ft=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const goH=()=>{setV("home");setSc(null);setSp(null);setSd(null);setLv(false);setDn(new Set())};
+  const togExp=id=>{setExp(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n})};
+
+  const scanD=async files=>{
+    if(!files||!files.length||!sc||!sp||!sd)return;
+    setScn(true);setSs("Lettura...");
+    try{
+      const imgs=[];
+      for(const f of files){
+        const b=await new Promise((r,j)=>{
+          const rd=new FileReader();
+          rd.onload=()=>r(rd.result.split(",")[1]);
+          rd.onerror=j;
+          rd.readAsDataURL(f)
         });
+        imgs.push({type:"image",source:{type:"base64",media_type:f.type||"image/jpeg",data:b}})
+      }
+      setSs("AI analizza "+imgs.length+" pagine...");
+      var prText="You are analyzing a Kids&Us Teacher Guide lesson plan for: "+sc.name+" - "+sp+" - Day "+sd+".\n\n";
+      prText+="CRITICAL RULES:\n1. The LESSON PLAN section lists numbered activities. Extract EXACTLY those in EXACT order.\n2. Warm-Up Routines is always ONE single block. Output as ONE item.\n3. Use the EXACT duration in parentheses.\n4. target_language: ONLY exact phrases in bold/quotes.\n\nRespond with JSON array ONLY.";
+      
+      const res=await fetch("/api/generate",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-3-5-sonnet-20240620",
+          max_tokens:4000,
+          messages:[{role:"user",content:[...imgs,{type:"text",text:prText}]}]
+        })
       });
-    }
-  }
-  
-  // ── LESSON ──
-  else if(state.view==="lesson"&&state.sc&&state.sp&&state.sd){
-    const cl=getCl();
-    const rtKey=rk(state.sc.id,state.sp);
-    const hasRt=!!state.routines[rtKey];
-    
-    // Header
-    const lhdr=h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"12px",marginBottom:"14px",flexWrap:"wrap"}});
-    const linfo=h("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
-    linfo.appendChild(h("span",{style:{fontSize:"30px"}},state.sc.em));
-    const ltxt=h("div");
-    ltxt.innerHTML='<h2 style="margin:0;font-size:15px;font-weight:700;color:#888">'+state.sc.name+' \u2014 '+state.sp+'</h2><h3 style="margin:0;font-size:28px;font-weight:900;color:'+cc+'">Day '+state.sd+'</h3>';
-    linfo.appendChild(ltxt);lhdr.appendChild(linfo);
-    
-    const lbtns=h("div",{style:{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap"}});
-    const timeInp=h("input",{type:"time",value:state.st,style:{padding:"6px 8px",border:"2px solid "+cc+"40",borderRadius:"8px",fontSize:"13px",fontWeight:"700",width:"82px"},onChange:(e)=>{state.st=e.target.value;render()}});
-    lbtns.appendChild(timeInp);
-    
-    if(cl&&cl.activities.length){
-      lbtns.appendChild(h("button",{class:"btn",style:{background:cc,color:"#fff"},onClick:()=>{state.el=0;state.ci=0;state.dn=new Set();state.view="live";render()}},"Live"));
-    }
-    
-    const scanBtn=h("button",{class:"btn",style:{background:"#F26522",color:"#fff"},onClick:()=>document.getElementById("dayFileInput").click()},cl?"Ri-scan":"Scan TG");
-    lbtns.appendChild(scanBtn);
-    lbtns.appendChild(h("input",{type:"file",id:"dayFileInput",accept:"image/*",multiple:"true",style:{display:"none"},onChange:(e)=>{scanDay(e.target.files);e.target.value=""}}));
-    
-    if(cl&&cl.activities.length){
-      lbtns.appendChild(h("button",{class:"btn",style:{background:"#00B3B0",color:"#fff"},onClick:()=>{state.view="materials";render()}},"Mat."));
-      lbtns.appendChild(h("button",{class:"btn",style:{background:"#E878A0",color:"#fff"},onClick:renderPrint},"Stampa"));
-      lbtns.appendChild(h("button",{class:"btn",style:{background:"#ffebee",color:"#c62828",fontSize:"11px"},onClick:()=>{if(confirm("Cancellare questa lezione?")){const k=gk(state.sc.id,state.sp,state.sd);delete state.lessons[k];saveL();state.view="course";state.sd=null;render()}}},"Canc."));
-    }
-    lhdr.appendChild(lbtns);main.appendChild(lhdr);
-    
-    // Warning if no routines
-    if(!hasRt){
-      const warn=h("div",{style:{padding:"10px 14px",background:"#FFF3E0",borderRadius:"10px",marginBottom:"12px",fontSize:"12px",fontWeight:"600",color:"#E65100",display:"flex",alignItems:"center",gap:"8px"}});
-      warn.innerHTML='\u{26A0}\u{FE0F} Routine non caricate per '+state.sp+'.';
-      warn.appendChild(h("button",{class:"btn",style:{background:"#F26522",color:"#fff",fontSize:"11px",padding:"4px 10px"},onClick:()=>{state.sd=null;state.view="routines";render()}},"Carica"));
-      main.appendChild(warn);
-    }
-    
-    // Scan status
-    if(state.scn){
-      const st=h("div",{style:{padding:"12px 16px",background:state.ss.includes("Fatto")?"#E8F5E9":state.ss.includes("Err")?"#FFEBEE":"#FFF3E0",borderRadius:"12px",marginBottom:"12px",fontSize:"13px",fontWeight:"700",display:"flex",alignItems:"center",gap:"10px"}});
-      if(!state.ss.includes("Fatto")&&!state.ss.includes("Err"))st.appendChild(h("div",{class:"spinner"}));
-      st.appendChild(h("span",null,state.ss));main.appendChild(st);
-    }
-    
-    // Empty state
-    if(!cl||!cl.activities.length){
-      if(!state.scn){
-        const empty=h("div",{style:{textAlign:"center",padding:"60px 24px",background:"#fff",borderRadius:"20px",boxShadow:"0 2px 12px #0001"}});
-        empty.innerHTML='<div style="font-size:64px;margin-bottom:12px">'+state.sc.em+'</div><h3 style="font-size:18px;font-weight:800;margin-bottom:8px">Lezione vuota</h3><p style="font-size:14px;color:#888;font-weight:600;margin-bottom:20px">Fotografa le pagine del Day (2-3 foto).'+(hasRt?" Le routine si inseriscono automaticamente.":"")+'</p>';
-        empty.appendChild(h("button",{class:"btn",style:{background:"#F26522",color:"#fff",fontSize:"15px",padding:"12px 28px"},onClick:()=>document.getElementById("dayFileInput").click()},"\u{1F4F8} Scan TG"));
-        main.appendChild(empty);
-      }
-    }
-    
-    // Activities list
-    if(cl&&cl.activities.length){
-      const summary=h("div",{style:{display:"flex",gap:"16px",padding:"10px 14px",background:"#fff",borderRadius:"10px",fontSize:"13px",color:"#666",marginBottom:"12px",fontWeight:"600"}});
-      summary.innerHTML='<span>'+td(cl.activities)+' min</span><span>'+cl.activities.filter(a=>!a.optional).length+'+'+cl.activities.filter(a=>a.optional).length+'opt</span>';
-      main.appendChild(summary);
-      
-      cl.activities.forEach((a,idx)=>{
-        const ti=gT(cl.activities,state.st);
-        const t=ti.find(x=>x.id===a.id);
-        const isExp=state.exp.has(a.id);
-        const card=h("div",{class:"card",style:{borderLeft:"5px solid "+(a.optional?"#FFB74D":cc),opacity:a.optional?"0.7":"1",marginBottom:"8px"}});
-        
-        // Top row
-        const row=h("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
-        const timeCol=h("div",{style:{width:"44px",textAlign:"center",flexShrink:"0"}});
-        timeCol.innerHTML='<span style="font-weight:800;font-size:13px;color:'+cc+'">'+(t?t.st:"\u2014")+'</span><br><span style="font-size:10px;color:#bbb">'+a.duration+'m</span>';
-        row.appendChild(timeCol);
-        
-        const nameCol=h("div",{style:{flex:"1",minWidth:"0"}});
-        let nameHtml='<div style="font-size:14px;font-weight:800;display:flex;align-items:center;gap:4px;flex-wrap:wrap">';
-        if(a.optional)nameHtml+='<span style="padding:1px 4px;background:#FFF3E0;color:#E65100;border-radius:3px;font-size:8px;font-weight:800">OPT</span>';
-        nameHtml+=a.name;
-        if(a.targetLanguage)nameHtml+='<span style="width:7px;height:7px;border-radius:4px;background:#8CB43B;flex-shrink:0;display:inline-block"></span>';
-        nameHtml+='</div>';
-        if(a.tracks)nameHtml+='<div style="font-size:10px;color:#bbb;font-weight:600">'+a.tracks+'</div>';
-        nameCol.innerHTML=nameHtml;
-        
-        // Expand button for sub-routines
-        if(a.sub&&a.sub.length){
-          const expBtn=h("button",{style:{background:"none",border:"1px solid #ddd",borderRadius:"4px",padding:"0 5px",fontSize:"10px",color:"#888",cursor:"pointer",marginLeft:"4px"},onClick:()=>{if(state.exp.has(a.id))state.exp.delete(a.id);else state.exp.add(a.id);render()}},(isExp?"\u25B2":"\u25BC")+" dettagli");
-          nameCol.querySelector("div").appendChild(expBtn);
-        }
-        
-        // Goodbye version selector
-        if(a.routineVersions&&a.routineVersions.length>1){
-          const sel=h("select",{style:{fontSize:"10px",padding:"2px 4px",borderRadius:"4px",border:"1px solid #ddd",marginLeft:"4px"},onChange:(e)=>{
-            const chosen=a.routineVersions[e.target.value];
-            if(chosen){a.targetLanguage=chosen.target_language||"";a.description=chosen.description||"";saveL();render()}
-          }});
-          a.routineVersions.forEach((v,vi)=>{sel.appendChild(h("option",{value:""+vi},v.name||"Version "+(vi+1)))});
-          nameCol.querySelector("div").appendChild(sel);
-        }
-        
-        row.appendChild(nameCol);
-        
-        // Action buttons
-        const btns=h("div",{style:{display:"flex",gap:"2px",flexShrink:"0"}});
-        btns.appendChild(h("button",{class:"sm",onClick:()=>{if(idx>0){const x=cl.activities;[x[idx],x[idx-1]]=[x[idx-1],x[idx]];saveL();render()}}},"\u2191"));
-        btns.appendChild(h("button",{class:"sm",onClick:()=>{if(idx<cl.activities.length-1){const x=cl.activities;[x[idx],x[idx+1]]=[x[idx+1],x[idx]];saveL();render()}}},"\u2193"));
-        btns.appendChild(h("button",{class:"sm",style:{color:cc},onClick:()=>{state.ea=a;state.ef=Object.assign({},a);state.view="edit";render()}},"\u270E"));
-        btns.appendChild(h("button",{class:"sm",style:{color:"#E94E58"},onClick:()=>{cl.activities.splice(idx,1);saveL();render()}},"\u00D7"));
-        row.appendChild(btns);
-        card.appendChild(row);
-        
-        // Target language
-        if(a.targetLanguage){
-          const tl=h("div",{style:{margin:"6px 0 2px",padding:"6px 10px",background:cc+"08",borderRadius:"8px",borderLeft:"3px solid "+cc}});
-          tl.innerHTML='<span style="font-size:8px;font-weight:800;color:'+cc+';text-transform:uppercase">TARGET LANGUAGE</span><br><span style="font-size:12px;font-weight:600;line-height:1.4">'+a.targetLanguage+'</span>';
-          card.appendChild(tl);
-        }
-        
-        // Sub-routines (expanded)
-        if(isExp&&a.sub){
-          const subDiv=h("div",{style:{margin:"6px 0 2px",padding:"8px 10px",background:"#f9f9f7",borderRadius:"8px"}});
-          a.sub.forEach(s=>{
-            subDiv.innerHTML+='<div style="margin-top:4px"><b style="font-size:12px">'+s.name+'</b>'+(s.target_language?'<div style="font-size:11px;color:#555;margin-top:2px;padding:3px 6px;background:#FFFDE7;border-radius:4px;border-left:2px solid '+cc+'">'+s.target_language+'</div>':'')+'</div>';
-          });
-          card.appendChild(subDiv);
-        }
-        
-        if(a.description)card.appendChild(h("p",{style:{fontSize:"11px",color:"#999",margin:"4px 0 0"}},a.description));
-        if(a.materials)card.appendChild(h("p",{style:{fontSize:"10px",color:"#00B3B0",margin:"2px 0 0",fontWeight:"600"}},a.materials));
-        
-        // Add button
-        const addRow=h("div",{style:{textAlign:"center",marginTop:"3px"}});
-        addRow.appendChild(h("button",{style:{background:"none",border:"1px dashed #eee",borderRadius:"5px",padding:"2px 10px",fontSize:"9px",color:"#ddd",cursor:"pointer"},onClick:()=>{cl.activities.splice(idx+1,0,{id:"a"+Date.now(),name:"New",duration:3,tracks:"",targetLanguage:"",description:"",materials:"",optional:false});saveL();render()}},"+"));
-        card.appendChild(addRow);
-        
-        main.appendChild(card);
-      });
-    }
-  }
-  
-  // ── EDIT ──
-  else if(state.view==="edit"&&state.ea){
-    const wrap=h("div",{style:{maxWidth:"550px",margin:"0 auto"}});
-    wrap.appendChild(h("h2",{style:{fontSize:"20px",fontWeight:"800",marginBottom:"16px"}},"Modifica"));
-    const form=h("div",{class:"card",style:{padding:"24px",boxShadow:"0 4px 16px #0001"}});
-    
-    const fields=[["Nome","name","input"],["Durata (min)","duration","input"],["Tracce","tracks","input"],["Target Language","targetLanguage","textarea"],["Descrizione","description","textarea"],["Materiali","materials","textarea"]];
-    fields.forEach(([label,key,type])=>{
-      const lab=h("label",{style:{display:"flex",flexDirection:"column",gap:"4px",fontSize:"12px",fontWeight:"700",color:"#888",marginBottom:"12px"}},label);
-      const inp=h(type,{style:{padding:"10px 12px",border:"2px solid #eee",borderRadius:"10px",fontSize:"14px",fontWeight:"600",resize:"vertical",fontFamily:"'Nunito',sans-serif",minHeight:type==="textarea"?"60px":"auto"},value:state.ef[key]||""});
-      inp.addEventListener("input",(e)=>{state.ef[key]=e.target.value});
-      lab.appendChild(inp);form.appendChild(lab);
+      const d=await res.json();
+      const txt=d.content?.map(c=>c.type==="text"?c.text:"").join("")||"";
+      setSs("Elaborazione...");
+      let parsed;
+      try{parsed=JSON.parse(txt.replace(/```json\n?|```/g,"").trim())}catch{const m=txt.match(/\[[\s\S]*\]/);if(m)parsed=JSON.parse(m[0]);else throw new Error("Risposta AI non valida")}
+      const acts=parsed.map((p,i)=>({id:"s"+Date.now()+"_"+i,name:p.name||"?",duration:p.duration||3,tracks:p.tracks||"",targetLanguage:p.target_language||"",description:p.description||"",materials:p.materials||"",optional:!!p.optional,sub:p.sub||null}));
+      svL({courseId:sc.id,part:sp,day:sd,activities:acts});
+      setSs("Fatto!");
+      setTimeout(()=>{setSs("");setScn(false)},3500)
+    }catch(e){setSs("Errore: "+e.message);setTimeout(()=>{setSs("");setScn(false)},4000)}
+  };
+
+  const delL=()=>{const k=sc.id+"|"+sp+"|"+sd;setL(p=>{const n={...p};delete n[k];return n})};
+
+  useEffect(()=>{if(lv&&cl){const t=gT(cl.activities,st);let c=0;for(let j=0;j<t.length;j++){c+=t[j].duration;if(el/60<c){setCi(j);return}}setCi(t.length-1)}},[el,lv,cl,st]);
+
+  if(ld) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh"}}><p>Caricamento...</p></div>;
+  const cc=sc?.color||"#8CB43B",cbg=sc?.bg||"#F0F7E1";
+
+  if(pr&&cl){
+    const ti=gT(cl.activities,st);
+    let html = '<div id="printView" style="font-family:Nunito,sans-serif;padding:24px;max-width:800px;margin:0 auto;background:#fff">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:16px"><button onclick="window.print()" style="padding:8px 20px;background:'+cc+';color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700">Stampa</button><button onclick="window.dispatchEvent(new CustomEvent(\'closePrint\'))" style="padding:8px 20px;background:#eee;border:none;border-radius:10px;cursor:pointer;font-weight:700">Chiudi</button></div>';
+    html += '<div style="border-bottom:3px solid '+cc+';padding-bottom:8px;margin-bottom:16px"><h1 style="margin:0;font-size:20px">'+sc.em+' '+sc.name+' — '+sp+' — <span style="color:'+cc+'">Day '+sd+'</span></h1></div>';
+    cl.activities.forEach(a=>{
+      const t=ti.find(x=>x.id===a.id);
+      html+='<div style="padding:6px 0;border-bottom:1px solid #eee;opacity:'+(a.optional?".6":"1")+'">';
+      html+='<div style="display:flex;gap:8px;align-items:baseline"><b style="font-family:monospace;color:'+cc+';width:44px;font-size:12px">'+(t?t.st:"\u2014")+'</b><b style="font-size:12px">'+(a.optional?"[OPT] ":"")+a.name+'</b><span style="color:#aaa;font-size:10px">'+a.duration+'m '+(a.tracks||"")+'</span></div>';
+      if(a.targetLanguage)html+='<div style="margin:3px 0 0 52px;padding:3px 6px;background:#FFFDE7;border-radius:4px;font-size:10px;border-left:2px solid '+cc+'">'+a.targetLanguage+'</div>';
+      if(a.sub&&a.sub.length)a.sub.forEach(s=>{html+='<div style="margin:2px 0 0 52px;font-size:9px;color:#888"><b>'+s.name+':</b> '+(s.target_language||"\u2014")+'</div>'});
+      if(a.description)html+='<p style="margin:2px 0 0 52px;font-size:10px;color:#888">'+a.description+'</p></div>';
     });
-    
-    const optLab=h("label",{style:{display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",fontWeight:"600",color:"#888",marginBottom:"14px",cursor:"pointer"}});
-    const optCb=h("input",{type:"checkbox"});optCb.checked=!!state.ef.optional;
-    optCb.addEventListener("change",(e)=>{state.ef.optional=e.target.checked});
-    optLab.appendChild(optCb);optLab.appendChild(document.createTextNode("Opzionale"));
-    form.appendChild(optLab);
-    
-    const btns=h("div",{style:{display:"flex",gap:"10px"}});
-    btns.appendChild(h("button",{class:"btn",style:{background:cc,color:"#fff",flex:"1"},onClick:()=>{
-      const cl=getCl();if(cl){Object.assign(state.ea,state.ef);state.ea.duration=Number(state.ef.duration)||0;saveL()}
-      state.view="lesson";state.ea=null;render();
-    }},"Salva"));
-    btns.appendChild(h("button",{class:"btn",style:{background:"#f0f0f0",color:"#888",flex:"1"},onClick:()=>{state.view="lesson";state.ea=null;render()}},"Annulla"));
-    form.appendChild(btns);wrap.appendChild(form);main.appendChild(wrap);
+    html += '</div>';
+    window.addEventListener('closePrint', () => setPr(false), {once:true});
+    return <div dangerouslySetInnerHTML={{__html: html}} />;
   }
-  
-  // ── MATERIALS ──
-  else if(state.view==="materials"){
-    const cl=getCl();
-    main.appendChild(h("h2",{style:{fontSize:"22px",fontWeight:"900",color:"#00B3B0"}},"Materiali"));
-    main.innerHTML+='<p style="font-size:13px;color:#888">'+state.sc.name+' \u2014 '+state.sp+' \u2014 Day '+state.sd+'</p>';
-    if(cl)cl.activities.filter(a=>a.materials).forEach(a=>{
-      const c=h("div",{class:"card",style:{borderLeft:"4px solid "+cc,marginTop:"8px"}});
-      c.innerHTML='<b style="font-size:13px">'+a.name+'</b><br><span style="font-size:12px;color:#666">'+a.materials+'</span>';
-      main.appendChild(c);
-    });
-    const btns=h("div",{style:{marginTop:"20px",display:"flex",gap:"8px"}});
-    btns.appendChild(h("button",{class:"btn",style:{background:"#E878A0",color:"#fff"},onClick:renderPrint},"Stampa"));
-    btns.appendChild(h("button",{class:"btn",style:{background:"#f0f0f0",color:"#888"},onClick:()=>{state.view="lesson";render()}},"Torna"));
-    main.appendChild(btns);
-  }
-  
-  // ── LIVE ──
-  else if(state.view==="live"){
-    const cl=getCl();if(!cl)return;
-    const ta=gT(cl.activities,state.st);
-    
-    const hd=h("div",{style:{textAlign:"center",marginBottom:"20px"}});
-    hd.innerHTML='<p style="font-size:13px;color:#888;font-weight:600;margin-bottom:4px">'+state.sc.em+' '+state.sc.name+' \u2014 '+state.sp+' \u2014 Day '+state.sd+'</p>';
-    hd.innerHTML+='<div style="font-size:48px;font-weight:900">'+ft(state.el)+'<span style="font-size:14px;color:#bbb;margin-left:8px">/ '+td(cl.activities)+'m</span></div>';
-    
-    const btns=h("div",{style:{display:"flex",gap:"6px",justifyContent:"center",marginTop:"10px",flexWrap:"wrap"}});
-    if(!state.lv)btns.appendChild(h("button",{class:"btn",style:{background:"#8CB43B",color:"#fff",padding:"10px 24px",fontSize:"14px"},onClick:startTimer},"Start"));
-    else btns.appendChild(h("button",{class:"btn",style:{background:"#F26522",color:"#fff",padding:"10px 24px",fontSize:"14px"},onClick:stopTimer},"Pausa"));
-    btns.appendChild(h("button",{class:"btn",style:{background:"#f0f0f0",color:"#888"},onClick:resetTimer},"Reset"));
-    btns.appendChild(h("button",{class:"btn",style:{background:"#f0f0f0",color:"#888"},onClick:()=>{stopTimer();state.view="lesson";render()}},"Torna"));
-    hd.appendChild(btns);main.appendChild(hd);
-    
-    ta.forEach((a,i)=>{
-      const iD=state.dn.has(a.id),iA=i===state.ci&&state.lv&&!iD;
-      let cB=ta.slice(0,i).reduce((s,x)=>s+x.duration,0);
-      const iP=(state.lv&&state.el/60>=cB+a.duration)||iD;
-      const aE=state.lv?Math.max(0,state.el-cB*60):0,aT=a.duration*60;
-      const pg=state.lv?Math.min(1,aE/aT):0,ov=aE>aT&&!iD;
-      
-      const card=h("div",{style:{borderRadius:"14px",padding:"12px 14px",borderLeft:"5px solid "+(iD?"#8CB43B":iA?cc:iP?"#ddd":"#e8e8e8"),background:iD?"#E8F5E908":iA?cc+"10":"#fff",transform:iA?"scale(1.01)":"none",boxShadow:iA?"0 4px 20px "+cc+"20":"0 2px 6px #0001",transition:"all .3s",marginBottom:"8px"}});
-      
-      const row=h("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
-      const chk=h("button",{style:{width:"28px",height:"28px",borderRadius:"8px",border:"2px solid "+(iD?"#8CB43B":cc),background:iD?"#8CB43B":"transparent",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",flexShrink:"0"},onClick:()=>{if(state.dn.has(a.id))state.dn.delete(a.id);else state.dn.add(a.id);render()}},iD?"\u2713":"");
-      row.appendChild(chk);
-      row.appendChild(h("b",{style:{fontSize:"13px",color:iA?cc:"#bbb",width:"44px"}},a.st));
-      const info=h("div",{style:{flex:"1"}});
-      info.innerHTML='<div style="font-size:14px;font-weight:800;color:'+(iD||iP?"#bbb":"#3C3C3B")+';text-decoration:'+(iD?"line-through":"none")+'">'+a.name+'</div><div style="font-size:10px;color:#bbb">'+(a.tracks||"-")+" "+a.duration+'m</div>';
-      row.appendChild(info);
-      if(iA)row.appendChild(h("span",{style:{fontSize:"22px",fontWeight:"900",color:ov?"#E94E58":cc}},(ov?"+":"")+ft(ov?aE-aT:aT-aE)));
-      card.appendChild(row);
-      
-      if(iA){
-        const bar=h("div",{style:{height:"4px",background:"#eee",borderRadius:"2px",marginTop:"6px",overflow:"hidden"}});
-        bar.appendChild(h("div",{style:{height:"100%",borderRadius:"2px",background:ov?"#E94E58":cc,width:(pg*100)+"%",transition:"width 1s linear"}}));
-        card.appendChild(bar);
-      }
-      if(a.targetLanguage&&(iA||!state.lv)){
-        const tl=h("div",{style:{margin:"6px 0 2px",padding:"6px 10px",background:cc+"08",borderRadius:"8px",borderLeft:"3px solid "+cc}});
-        tl.innerHTML='<span style="font-size:8px;font-weight:800;color:'+cc+'">TARGET LANGUAGE</span><br><span style="font-size:12px;font-weight:'+(iA?"700":"500")+'">'+a.targetLanguage+'</span>';
-        card.appendChild(tl);
-      }
-      if(iA&&a.sub&&a.sub.length){
-        const subDiv=h("div",{style:{margin:"4px 0",padding:"6px 8px",background:"#f9f9f7",borderRadius:"6px"}});
-        a.sub.forEach(s=>{subDiv.innerHTML+='<div style="font-size:11px;margin-top:3px"><b>'+s.name+':</b> <span style="color:#555">'+(s.target_language||"\u2014")+'</span></div>'});
-        card.appendChild(subDiv);
-      }
-      if(iA&&a.description)card.appendChild(h("p",{style:{fontSize:"11px",color:"#888",margin:"3px 0 0"}},a.description));
-      main.appendChild(card);
-    });
-  }
-  
-  app.appendChild(main);
+
+  return (
+    <div style={{minHeight:"100vh",background:"#FAFAF7"}}>
+      <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 20px",background:"#fff",borderBottom:"3px solid #8CB43B",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={goH}>
+          <div style={{width:38,height:38,borderRadius:11,background:"#8CB43B",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{"\u{1F42D}"}</div>
+          <h1 style={{margin:0,fontSize:15,fontWeight:800}}>Kids&Us Planner</h1>
+        </div>
+      </header>
+      <main style={{maxWidth:900,margin:"0 auto",padding:"20px 16px"}}>
+        {view==="home"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {CS.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:14,background:"#fff",borderRadius:16,padding:"16px 20px",cursor:"pointer",borderLeft:"5px solid "+c.color}} onClick={()=>{setSc(c);setV("course")}}><div style={{fontSize:28}}>{c.em}</div><div style={{flex:1}}><h3 style={{margin:0}}>{c.name}</h3><p style={{margin:0,fontSize:12,color:"#888"}}>{c.age}</p></div></div>)}
+        </div>}
+        {view==="course"&&sc&&<div>
+          <h2 style={{color:cc}}>{sc.name}</h2>
+          {sc.parts.map(p=><div key={p} style={{marginTop:24}}><h3>{p}</h3><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(78px,1fr))",gap:8}}>
+            {Array.from({length:sc.dp},(_,d)=>d+1).map(day=><div key={day} style={{padding:10,borderRadius:10,border:"2px solid #e0e0e0",textAlign:"center",cursor:"pointer"}} onClick={()=>{setSp(p);setSd(day);setV("lesson")}}>Day {day}</div>)}
+          </div></div>)}
+        </div>}
+        {view==="lesson"&&<div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <h2>{sc.name} - Day {sd}</h2>
+            <div style={{display:"flex",gap:6}}>
+              <button className="btn" style={{background:cc,color:"#fff"}} onClick={()=>setV("live")}>Live</button>
+              <button className="btn" style={{background:"#F26522",color:"#fff"}} onClick={()=>fr.current.click()}>Scan TG</button>
+              <input ref={fr} type="file" multiple style={{display:"none"}} onChange={e=>scanD(e.target.files)}/>
+              <button className="btn" style={{background:"#E878A0",color:"#fff"}} onClick={()=>setPr(true)}>Stampa</button>
+            </div>
+          </div>
+          {scn&&<div style={{padding:12,background:"#FFF3E0",borderRadius:12,marginBottom:12}}>{ss}</div>}
+          {cl&&cl.activities.map((a,idx)=>(
+            <div key={a.id} style={{background:"#fff",borderRadius:14,padding:14,marginBottom:8,borderLeft:"5px solid "+(a.optional?"#FFB74D":cc)}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <b>{a.name}</b><span>{a.duration}m</span>
+              </div>
+              {a.targetLanguage&&<p style={{fontSize:12,color:cc,marginTop:4}}><i>{a.targetLanguage}</i></p>}
+            </div>
+          ))}
+        </div>}
+        {view==="live"&&cl&&<div style={{textAlign:"center"}}>
+          <h1>{ft(el)}</h1>
+          <button className="btn" style={{background:cc,color:"#fff"}} onClick={()=>setLv(!lv)}>{lv?"Pausa":"Start"}</button>
+          <button className="btn" onClick={()=>setV("lesson")}>Indietro</button>
+        </div>}
+      </main>
+    </div>
+  )
 }
 
-// ─── PRINT ─────────────────────────────────────────────────
-function renderPrint(){
-  const cl=getCl();if(!cl)return;
-  const cc=state.sc.color;
-  const ti=gT(cl.activities,state.st);
-  const pv=document.getElementById("printView");
-  pv.style.display="block";
-  pv.style.fontFamily="'Nunito',sans-serif";
-  pv.style.padding="24px";
-  pv.style.maxWidth="800px";
-  pv.style.margin="0 auto";
-  pv.style.background="#fff";
-  
-  let html='<div style="margin-bottom:16px;display:flex;gap:12px" class="no-print"><button onclick="window.print()" style="padding:8px 20px;background:'+cc+';color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700">Stampa</button><button onclick="document.getElementById(\'printView\').style.display=\'none'" style="padding:8px 20px;background:#eee;border:none;border-radius:10px;cursor:pointer;font-weight:700">Chiudi</button></div>';
-  html+='<div style="border-bottom:3px solid '+cc+';padding-bottom:8px;margin-bottom:16px"><h1 style="margin:0;font-size:20px">'+state.sc.em+' '+state.sc.name+' \u2014 '+state.sp+'</h1><h2 style="margin:2px 0;font-size:28px;font-weight:800;color:'+cc+'">Day '+state.sd+'</h2><p style="font-size:11px;color:#888">'+state.st+' | '+td(cl.activities)+' min | '+cl.activities.filter(a=>!a.optional).length+' att.</p></div>';
-  
-  cl.activities.forEach(a=>{
-    const t=ti.find(x=>x.id===a.id);
-    html+='<div style="padding:6px 0;border-bottom:1px solid #eee;opacity:'+(a.optional?".6":"1")+'">';
-    html+='<div style="display:flex;gap:8px;align-items:baseline"><b style="font-family:monospace;color:'+cc+';width:44px;font-size:12px">'+(t?t.st:"\u2014")+'</b><b style="font-size:12px">'+(a.optional?"[OPT] ":"")+a.name+'</b><span style="color:#aaa;font-size:10px">'+a.duration+'m '+(a.tracks||"")+'</span></div>';
-    if(a.targetLanguage)html+='<div style="margin:3px 0 0 52px;padding:3px 6px;background:#FFFDE7;border-radius:4px;font-size:10px;border-left:2px solid '+cc+'">'+a.targetLanguage+'</div>';
-    if(a.sub&&a.sub.length)a.sub.forEach(s=>{html+='<div style="margin:2px 0 0 52px;font-size:9px;color:#888"><b>'+s.name+':</b> '+(s.target_language||"\u2014")+'</div>'});
-    if(a.description)html+='<p style="margin:2px 0 0 52px;font-size:10px;color:#888">'+a.description+'</p>';
-    html+='</div>';
-  });
-  
-  html+='<div style="margin-top:16px;padding:10px;background:#f8f8f5;border-radius:8px;font-size:10px"><b style="color:#00B3B0">MATERIALI:</b> '+cl.activities.filter(a=>a.materials).map(a=>a.name+": "+a.materials).join(" | ")+'</div>';
-  
-  pv.innerHTML=html;
-  // Add print-specific CSS
-  const style=document.createElement("style");
-  style.textContent="@media print{.no-print{display:none!important}}";
-  pv.appendChild(style);
-}
-
-// ─── INIT ──────────────────────────────────────────────────
-load();
-render();
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
 </script>
-
 </body>
 </html>
