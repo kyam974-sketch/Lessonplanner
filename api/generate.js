@@ -1,18 +1,21 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   
-  // Usiamo il nuovo nome della variabile per evitare conflitti
-  const key = process.env.GEMINI_PLANNER_KEY;
+  // Prendiamo la chiave e puliamola da eventuali spazi o ritorni a capo invisibili
+  const rawKey = process.env.GEMINI_PLANNER_KEY || "";
+  const key = rawKey.trim();
   
   if (!key) {
-    return res.status(500).json({ error: 'Manca la chiave GEMINI_PLANNER_KEY su Vercel' });
+    return res.status(500).json({ error: 'Chiave GEMINI_PLANNER_KEY non trovata. Controlla Environment Variables su Vercel.' });
   }
 
   try {
     const { prompt, imageB64 } = req.body;
 
-    // Chiamata diretta a Google con il modello più stabile
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+    // Endpoint ultra-specifico per il 2026
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -27,18 +30,20 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
+    // Se c'è un errore, lo mostriamo chiaramente
     if (data.error) {
-      return res.status(401).json({ error: `Google dice: ${data.error.message}` });
+      return res.status(data.error.code || 400).json({ 
+        error: `Google dice: ${data.error.message} (Codice: ${data.error.status})` 
+      });
     }
 
     if (data.candidates && data.candidates[0].content) {
-      const output = data.candidates[0].content.parts[0].text;
-      res.status(200).json({ text: output });
+      res.status(200).json({ text: data.candidates[0].content.parts[0].text });
     } else {
-      throw new Error("Nessun testo generato.");
+      res.status(500).json({ error: "Risposta vuota da Google. Prova a ricaricare." });
     }
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: `Errore Server: ${err.message}` });
   }
 }
