@@ -3,90 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K&U Lesson Planner</title>
+    <title>K&U Planner</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { --cc: #8CB43B; }
+        :root { --cc: #8CB43B; --cbg: #F0F7E1; }
         body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; color: #3C3C3B; -webkit-tap-highlight-color: transparent; }
-        header { padding: 15px; background: #fff; border-bottom: 3px solid var(--cc); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z.index: 100; }
+        header { padding: 15px; background: #fff; border-bottom: 3px solid var(--cc); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
-        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #eee; }
-        .btn { padding: 12px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; }
-        .btn-opt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 11px; padding: 5px; }
+        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #eee; transition: 0.2s; }
+        .btn { padding: 12px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; display: block; }
+        .btn-rt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 10px; padding: 5px 10px; width: auto; margin: 0; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .day-box { padding: 15px 5px; background: #fff; border: 1px solid #eee; border-radius: 10px; text-align: center; font-weight: 800; cursor: pointer; }
-        .status { text-align: center; font-size: 12px; font-weight: 800; color: var(--cc); margin: 10px 0; }
-        .spinner { width: 20px; height: 20px; border: 3px solid #eee; border-top: 3px solid #F26522; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .hidden { display: none; }
+        .status-box { text-align: center; padding: 15px; background: #fff; border-radius: 15px; margin-bottom: 15px; display: none; }
+        .spinner { width: 24px; height: 24px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 10px; }
+        @keyframes rot { to { transform: rotate(360deg); } }
+        .rt-tag { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px; background: var(--cc); color: #fff; text-transform: uppercase; margin-bottom: 4px; display: inline-block; }
     </style>
 </head>
 <body>
 
 <header>
     <h1 id="logo" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1>
-    <div id="course-tag" style="padding:4px 10px; borderRadius:15px; fontSize:12px; fontWeight:800; display:none"></div>
+    <div id="course-tag" style="padding:4px 12px; border-radius:15px; font-size:11px; font-weight:800; display:none"></div>
 </header>
 
-<div class="container" id="main-content">
-    </div>
+<div class="container">
+    <div id="status-area" class="status-box"></div>
+    <div id="main-content"></div>
+</div>
 
 <script>
-// --- CONFIGURAZIONE ---
+// --- DATI CORSI ---
 const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
     id: n.toLowerCase(), name: n, 
     color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
     bg: ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"][i],
     em: ["🐭","🐱","🧸","🦋","🐸","🎀"][i],
-    stories: ["Story 1", "Story 2", "Story 3", "Story 4"],
+    parts: ["Story 1", "Story 2", "Story 3", "Story 4"],
     days: 10
 }));
 
 let state = { sc: null, ss: null, sd: null, lessons: {}, routines: {} };
 
-// --- LOGICA ---
-function save() {
-    localStorage.setItem("ku_data", JSON.stringify({l: state.lessons, r: state.routines}));
-}
-
-function load() {
-    const data = JSON.parse(localStorage.getItem("ku_data") || '{"l":{},"r":{}}');
-    state.lessons = data.l;
-    state.routines = data.r;
-}
-
-async function apiCall(files, prompt) {
-    const imgs = [];
-    for (let f of files) {
-        const b64 = await new Promise(r => {
-            const reader = new FileReader();
-            reader.onload = () => r(reader.result.split(',')[1]);
-            reader.readAsDataURL(f);
-        });
-        imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
+// --- FUNZIONI DI SISTEMA ---
+function init() {
+    const saved = localStorage.getItem("ku_v3");
+    if (saved) {
+        const data = JSON.parse(saved);
+        state.lessons = data.l || {};
+        state.routines = data.r || {};
     }
-
-    const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            model: "claude-3-5-sonnet-20240620",
-            max_tokens: 4000,
-            messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
-        })
-    });
-    const data = await res.json();
-    return JSON.parse(data.content[0].text.match(/\[[\s\S]*\]/)[0]);
+    renderHome();
 }
 
-// --- RENDER ---
+function save() {
+    localStorage.setItem("ku_v3", JSON.stringify({l: state.lessons, r: state.routines}));
+}
+
+function showStatus(msg, loading = false) {
+    const area = document.getElementById('status-area');
+    area.style.display = 'block';
+    area.innerHTML = loading ? `<div class="spinner"></div><div>${msg}</div>` : msg;
+}
+
+function hideStatus() { document.getElementById('status-area').style.display = 'none'; }
+
+// --- LOGICA SCAN ---
+async function handleScan(event, type, storyKey = null) {
+    const files = event.target.files;
+    if (!files.length) return;
+
+    showStatus(type === 'rou' ? "Analisi Routine..." : "Analisi Lezione...", true);
+
+    try {
+        const imgs = [];
+        for (let f of files) {
+            const b64 = await new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = () => r(reader.result.split(',')[1]);
+                reader.readAsDataURL(f);
+            });
+            imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
+        }
+
+        const prompt = type === 'rou' 
+            ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
+            : "Estrai attività (NO routine) come JSON array: [{name, duration, target_language, description}]";
+
+        const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                model: "claude-3-5-sonnet-20240620",
+                max_tokens: 4000,
+                messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
+            })
+        });
+
+        const data = await res.json();
+        const parsed = JSON.parse(data.content[0].text.match(/\[[\s\S]*\]/)[0]);
+
+        if (type === 'rou') {
+            state.routines[`${state.sc.id}|${storyKey}`] = parsed;
+            save();
+            renderStories(state.sc.id);
+            showStatus("✓ Routine Salvate!");
+        } else {
+            const rKey = `${state.sc.id}|${state.ss}`;
+            const rts = state.routines[rKey] || [];
+            const full = [
+                ...rts.filter(r => r.type === 'welcome' || r.type === 'warmup'),
+                ...parsed,
+                ...rts.filter(r => r.type === 'goodbye')
+            ].map((a, i) => ({...a, id: Date.now() + i}));
+            
+            state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] = full;
+            save();
+            renderLesson(state.sd);
+            showStatus("✓ Lezione Pronta!");
+        }
+    } catch (e) {
+        showStatus("Errore: " + e.message);
+    }
+    setTimeout(hideStatus, 3000);
+}
+
+// --- RENDERING ---
 function renderHome() {
-    state.sc = null; state.ss = null; state.sd = null;
+    state.sc = null;
     document.getElementById('course-tag').style.display = 'none';
     const main = document.getElementById('main-content');
     main.innerHTML = COURSES.map(c => `
         <div class="card" style="border-left:6px solid ${c.color}; cursor:pointer" onclick="renderStories('${c.id}')">
-            <span style="font-size:24px">${c.em}</span> <b style="margin-left:10px">${c.name}</b>
+            <span style="font-size:24px">${c.em}</span> <b style="margin-left:10px; font-size:18px">${c.name}</b>
         </div>
     `).join('');
 }
@@ -99,88 +149,74 @@ function renderStories(courseId) {
     tag.style.display = 'block'; tag.style.background = c.bg; tag.style.color = c.color; tag.innerText = c.name;
 
     const main = document.getElementById('main-content');
-    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); margin-bottom:15px; width:auto" onclick="renderHome()">← CORSI</button>` + 
-    c.stories.map(s => `
-        <div class="card" style="display:flex; justify-content:space-between; align-items:center">
-            <b onclick="renderDays('${s}')" style="flex:1; cursor:pointer">${s}</b>
-            <label class="btn-opt" style="background:${state.routines[c.id+'|'+s] ? '#E8F5E9':'#FFF3E0'}">
-                ${state.routines[c.id+'|'+s] ? "✓ ROUTINES" : "📸 SET ROUTINES"}
-                <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
-            </label>
-        </div>
-    `).join('');
+    let html = `<button class="btn" style="background:none; color:var(--cc); margin-bottom:15px; width:auto; padding:0" onclick="renderHome()">← CORSI</button>`;
+    
+    c.parts.forEach(s => {
+        const hasR = !!state.routines[`${c.id}|${s}`];
+        html += `
+            <div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left: 5px solid ${c.color}">
+                <b onclick="renderDays('${s}')" style="flex:1; cursor:pointer">${s}</b>
+                <label class="btn btn-rt" style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}">
+                    ${hasR ? "✓ ROUTINES" : "📸 SET ROUTINES"}
+                    <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
+                </label>
+            </div>
+        `;
+    });
+    main.innerHTML = html;
 }
 
 function renderDays(storyName) {
     state.ss = storyName;
     const main = document.getElementById('main-content');
-    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto" onclick="renderStories('${state.sc.id}')">← STORIE</button>
-    <h2 style="font-size:18px">${storyName}</h2>
-    <div class="grid">
-        ${Array.from({length:10}, (_,i) => `
-            <div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>
-        `).join('')}
-    </div>`;
-}
-
-async function handleScan(e, type, storyOrDay) {
-    const files = e.target.files;
-    if (!files.length) return;
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.innerHTML = '<div class="spinner"></div><div class="status">Analisi in corso...</div>';
-    document.getElementById('main-content').prepend(statusDiv);
-
-    try {
-        const prompt = type === 'rou' 
-            ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
-            : "Estrai attività lezione (NO routine) come JSON array: [{name, duration, target_language, description}]";
-        
-        const data = await apiCall(files, prompt);
-        
-        if (type === 'rou') {
-            state.routines[state.sc.id+'|'+storyOrDay] = data;
-            save(); renderStories(state.sc.id);
-        } else {
-            const rKey = state.sc.id+'|'+state.ss;
-            const savedR = state.routines[rKey] || [];
-            state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] = [
-                ...savedR.filter(r => r.type === 'welcome' || r.type === 'warmup'),
-                ...data,
-                ...savedR.filter(r => r.type === 'goodbye')
-            ];
-            save(); renderLesson(state.sd);
-        }
-    } catch (err) {
-        alert("Errore: " + err.message);
-        renderStories(state.sc.id);
-    }
+    main.innerHTML = `
+        <button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button>
+        <h2 style="font-size:18px; margin: 10px 0">${storyName}</h2>
+        <div class="grid">
+            ${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}
+        </div>
+    `;
 }
 
 function renderLesson(day) {
     state.sd = day;
     const main = document.getElementById('main-content');
-    const lessonData = state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] || [];
+    const lessonData = state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] || [];
     
-    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto" onclick="renderDays('${state.ss}')">← GIORNI</button>
-    <h2 style="font-size:18px">${state.ss} - Giorno ${day}</h2>
-    <label class="btn">
-        📸 SCANSIONA LEZIONE
-        <input type="file" multiple hidden onchange="handleScan(event, 'day')">
-    </label>
-    ${lessonData.map(a => `
-        <div class="card" style="border-left:5px solid ${a.type ? '#ddd' : 'var(--cc)'}">
-            <div style="font-weight:900; font-size:14px">${a.name} <span style="float:right; opacity:0.5">${a.duration}m</span></div>
-            ${a.target_language ? `<div style="font-size:12px; color:var(--cc); margin-top:5px; font-style:italic">${a.target_language}</div>`:''}
-            <p style="font-size:11px; color:#666; margin-top:5px">${a.description}</p>
-        </div>
-    `).join('')}`;
+    let html = `
+        <button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button>
+        <h2 style="font-size:18px; margin: 10px 0">${state.ss} - Giorno ${day}</h2>
+        <label class="btn" style="margin-bottom:20px">
+            📸 SCANSIONA LEZIONE
+            <input type="file" multiple hidden onchange="handleScan(event, 'day')">
+        </label>
+    `;
+
+    if (lessonData.length === 0) {
+        html += `<div style="text-align:center; color:#bbb; padding:40px 0">Nessuna attività. Carica le foto della TG!</div>`;
+    } else {
+        lessonData.forEach(a => {
+            html += `
+                <div class="card" style="border-left:5px solid ${a.type ? '#ddd' : 'var(--cc)'}">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                        <span style="flex:1">
+                            ${a.type ? `<span class="rt-tag">${a.type}</span>` : ''}
+                            <div style="font-weight:900; font-size:14px">${a.name}</div>
+                        </span>
+                        <span style="font-size:11px; font-weight:800; opacity:0.5">${a.duration}m</span>
+                    </div>
+                    ${a.target_language ? `<div style="font-size:12px; color:var(--cc); background:rgba(0,0,0,0.03); padding:6px; border-radius:8px; margin-top:5px"><i>${a.target_language}</i></div>` : ''}
+                    <p style="font-size:11px; color:#666; margin-top:5px; line-height:1.4">${a.description}</p>
+                </div>
+            `;
+        });
+    }
+    main.innerHTML = html;
 }
 
 // --- INIT ---
 document.getElementById('logo').onclick = renderHome;
-load();
-renderHome();
+window.onload = init;
 </script>
 </body>
 </html>
