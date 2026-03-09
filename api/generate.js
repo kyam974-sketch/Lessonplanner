@@ -3,26 +3,35 @@ export default async function handler(req, res) {
   
   const apiKey = process.env.GOOGLE_API_KEY;
   
-  // TEST: Se la chiave è vuota o troppo corta, ce lo dice subito nel pop-up
-  if (!apiKey || apiKey.length < 10) {
-    return res.status(500).json({ error: `Vercel non sta leggendo la chiave. Valore attuale: ${apiKey ? 'Troppo corta' : 'Vuoto'}` });
-  }
+  if (!apiKey) return res.status(500).json({ error: 'Chiave non caricata su Vercel.' });
 
   try {
     const { prompt, imageB64 } = req.body;
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+
+    // Proviamo il modello gemini-1.5-flash-latest (spesso più tollerante sulle chiavi nuove)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{
-          parts: [{ text: prompt }, { inline_data: { mime_type: "image/png", data: imageB64 } }]
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: "image/png", data: imageB64 } }
+          ]
         }]
       })
     });
 
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    res.status(200).json({ text: data.candidates[0].content.parts[0].text });
+    
+    // Se Google risponde ancora "Invalid Key", allora c'è un problema di attivazione sul loro portale
+    if (data.error) {
+      return res.status(401).json({ error: `Google dice: ${data.error.message}` });
+    }
+
+    const resultText = data.candidates[0].content.parts[0].text;
+    res.status(200).json({ text: resultText });
+
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
