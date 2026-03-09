@@ -1,121 +1,57 @@
-// ─── DATA ──────────────────────────────────────────────────
-const CS=[
-{id:"mousy",name:"Mousy",color:"#8CB43B",bg:"#F0F7E1",em:"🐭",age:"1 anno",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
-{id:"linda",name:"Linda",color:"#F26522",bg:"#FFF0E6",em:"🐱",age:"2 anni",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
-{id:"sam",name:"Sam",color:"#00B3B0",bg:"#E0F7F7",em:"🧸",age:"3 anni",parts:["Story 1: Happy Birthday","Story 2: The Park","Story 3: The Zoo","Story 4: The Picnic"],dp:10},
-{id:"emma",name:"Emma",color:"#E878A0",bg:"#FFF0F5",em:"🦋",age:"4 anni",parts:["Story 1: Sweets","Story 2: Eggs","Story 3: Bath","Story 4"],dp:10},
-{id:"oliver",name:"Oliver",color:"#00B3B0",bg:"#E0F7F7",em:"🐸",age:"5 anni",parts:["Story 1: Wobbly Tooth","Story 2: Flu","Story 3: Baby","Story 4"],dp:10},
-{id:"marcia",name:"Marcia",color:"#E94E58",bg:"#FFEBEE",em:"🎀",age:"6 anni",parts:["Story 1: The Alien","Story 2: Polly Goes to School","Story 3: The Ski Trip","Story 4: The Birthday Cake"],dp:10}
-];
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Kids&Us Lesson Planner</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height:100vh}
+        @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes sp{to{transform:rotate(360deg)}}
+        @media print{body>*:not(#printView){display:none!important}#printView{display:block!important;position:static!important}}
+        .btn{padding:8px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:800;font-family:'Nunito',sans-serif}
+        .sm{width:26px;height:26px;border-radius:7px;border:1px solid #eee;background:#fafafa;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#bbb}
+        input,textarea,select{font-family:'Nunito',sans-serif;font-weight:600}
+        .card{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 6px #0001}
+        .tl-box{margin:6px 0 2px;padding:6px 10px;border-radius:8px;border-left:3px solid var(--cc)}
+        .spinner{width:20px;height:20px;border:3px solid #F26522;border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;flex-shrink:0}
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="printView" style="display:none"></div>
 
-// ─── STATE ─────────────────────────────────────────────────
-let state={view:"home",lessons:{},routines:{},sc:null,sp:null,sd:null,st:"17:00",
-  ea:null,ef:{},el:0,lv:false,ci:0,dn:new Set(),as2:false,scn:false,ss:"",exp:new Set()};
-let timerRef=null,autoRef=null;
+    <script type="text/babel">
+        // Qui inizia il codice che hai incollato tu
+        const CS=[
+            {id:"mousy",name:"Mousy",color:"#8CB43B",bg:"#F0F7E1",em:"🐭",age:"1 anno",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
+            {id:"linda",name:"Linda",color:"#F26522",bg:"#FFF0E6",em:"🐱",age:"2 anni",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
+            {id:"sam",name:"Sam",color:"#00B3B0",bg:"#E0F7F7",em:"🧸",age:"3 anni",parts:["Story 1: Happy Birthday","Story 2: The Park","Story 3: The Zoo","Story 4: The Picnic"],dp:10},
+            {id:"emma",name:"Emma",color:"#E878A0",bg:"#FFF0F5",em:"🦋",age:"4 anni",parts:["Story 1: Sweets","Story 2: Eggs","Story 3: Bath","Story 4"],dp:10},
+            {id:"oliver",name:"Oliver",color:"#00B3B0",bg:"#E0F7F7",em:"🐸",age:"5 anni",parts:["Story 1: Wobbly Tooth","Story 2: Flu","Story 3: Baby","Story 4"],dp:10},
+            {id:"marcia",name:"Marcia",color:"#E94E58",bg:"#FFEBEE",em:"🎀",age:"6 anni",parts:["Story 1: The Alien","Story 2: Polly Goes to School","Story 3: The Ski Trip","Story 4: The Birthday Cake"],dp:10}
+        ];
 
-function load(){
-  try{state.lessons=JSON.parse(localStorage.getItem("ku8-l")||"{}")}catch{}
-  try{state.routines=JSON.parse(localStorage.getItem("ku8-r")||"{}")}catch{}
-}
-function saveL(){localStorage.setItem("ku8-l",JSON.stringify(state.lessons))}
-function saveR(){localStorage.setItem("ku8-r",JSON.stringify(state.routines))}
+        // Cambiamo il modello in quello esistente per non avere errori di scan
+        const AI_MODEL = "claude-3-5-sonnet-20240620";
 
-// ─── HELPERS ───────────────────────────────────────────────
-const gk=(c,p,d)=>c+"|"+p+"|"+d;
-const rk=(c,p)=>c+"|"+p;
-function gT(a,s){const[h,m]=s.split(":").map(Number);let c=0;return a.filter(x=>!x.optional).map(x=>{const t=h*60+m+c;c+=x.duration;return Object.assign({},x,{st:(Math.floor(t/60)%24+"").padStart(2,"0")+":"+(t%60+"").padStart(2,"0")})})}
-function td(a){return a.filter(x=>!x.optional).reduce((s,x)=>s+x.duration,0)}
-function ft(s){return(Math.floor(s/60)+"").padStart(2,"0")+":"+(s%60+"").padStart(2,"0")}
-function h(tag,attrs,children){
-  const el=document.createElement(tag);
-  if(attrs)Object.entries(attrs).forEach(([k,v])=>{
-    if(k==="style"&&typeof v==="object")Object.assign(el.style,v);
-    else if(k.startsWith("on"))el.addEventListener(k.slice(2).toLowerCase(),v);
-    else el.setAttribute(k,v);
-  });
-  if(children!=null){
-    if(Array.isArray(children))children.forEach(c=>{if(c)el.appendChild(typeof c==="string"?document.createTextNode(c):c)});
-    else if(typeof children==="string")el.textContent=children;
-    else el.appendChild(children);
-  }
-  return el;
-}
-
-// ─── AI SCAN ───────────────────────────────────────────────
-async function readFiles(files){
-  const imgs=[];
-  for(const f of files){
-    const b=await new Promise((r,j)=>{const rd=new FileReader();rd.onload=()=>r(rd.result.split(",")[1]);rd.onerror=j;rd.readAsDataURL(f)});
-    imgs.push({type:"image",source:{type:"base64",media_type:f.type||"image/jpeg",data:b}});
-  }
-  return imgs;
-}
-
-async function aiCall(imgs,prompt){
-  const res=await fetch("/api/generate",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-3-5-sonnet-20240620",max_tokens:4000,
-      messages:[{role:"user",content:[...imgs,{type:"text",text:prompt}]}]})
-  });
-  const d=await res.json();
-  if(d.error)throw new Error(d.error);
-  // Estrazione corretta per il formato di Anthropic Messages API
-  const txt=d.content?.map(c=>c.type==="text"?c.text:"").join("")||"";
-  let p;
-  try{p=JSON.parse(txt.replace(/```json\n?|```/g,"").trim())}
-  catch{const m=txt.match(/\[[\s\S]*\]/);if(m)p=JSON.parse(m[0]);else throw new Error("Risposta AI non valida")}
-  if(!Array.isArray(p))throw new Error("Formato non valido");
-  return p;
-}
-
-async function scanRoutines(files){
-  if(!files||!files.length)return;
-  state.scn=true;state.ss="Analisi routine...";render();
-  try{
-    const imgs=await readFiles(files);
-    state.ss="AI estrae le routine...";render();
-    var pr="Analyze the ROUTINE PAGES from Kids&Us Teacher Guide: "+state.sc.name+" - "+state.sp+".\n\nExtract ALL routine variants. Group by type.\nJSON array ONLY.";
-    const parsed=await aiCall(imgs,pr);
-    const key=rk(state.sc.id,state.sp);
-    state.routines[key]=parsed;saveR();
-    state.ss="Fatto! "+parsed.length+" routine salvate";render();
-    setTimeout(()=>{state.ss="";state.scn=false;render()},3000);
-  }catch(e){state.ss="Errore: "+e.message;render();setTimeout(()=>{state.ss="";state.scn=false;render()},4000)}
-}
-
-async function scanDay(files){
-  if(!files||!files.length)return;
-  state.scn=true;state.ss="Lettura...";render();
-  try{
-    const imgs=await readFiles(files);
-    state.ss="AI analizza "+imgs.length+" pagine...";render();
-    var pr="Analyze Kids&Us Teacher Guide: "+state.sc.name+" - "+state.sp+" - Day "+state.sd+".\n\nJSON array ONLY.";
-    const parsed=await aiCall(imgs,pr);
-    const rKey=rk(state.sc.id,state.sp);
-    const rts=state.routines[rKey]||null;
-    const acts=parsed.map((p,i)=>{
-      const act={id:"s"+Date.now()+"_"+i,name:p.name||"?",duration:p.duration||3,
-        tracks:p.tracks||"",targetLanguage:p.target_language||"",
-        description:p.description||"",materials:p.materials||"",
-        optional:!!p.optional,sub:null,routineVersions:null};
-      if(rts&&(p.name||"").toLowerCase().includes("warm")){act.sub=rts.filter(r=>r.type==="welcome"||r.type==="warmup")}
-      if(rts&&(p.name||"").toLowerCase().includes("goodbye")){act.routineVersions=rts.filter(r=>r.type==="goodbye")}
-      return act;
-    });
-    const key=gk(state.sc.id,state.sp,state.sd);
-    state.lessons[key]={courseId:state.sc.id,part:state.sp,day:state.sd,activities:acts};
-    saveL();
-    state.ss="Fatto!";render();
-    setTimeout(()=>{state.ss="";state.scn=false;render()},3000);
-  }catch(e){state.ss="Errore: "+e.message;render();setTimeout(()=>{state.ss="";state.scn=false;render()},4000)}
-}
-
-// ─── TIMER ─────────────────────────────────────────────────
-function startTimer(){if(timerRef)return;state.lv=true;timerRef=setInterval(()=>{state.el++;const cl=getCl();if(cl){const ta=gT(cl.activities,state.st);let c=0;for(let j=0;j<ta.length;j++){c+=ta[j].duration;if(state.el/60<c){state.ci=j;break}}}render()},1000)}
-function stopTimer(){state.lv=false;clearInterval(timerRef);timerRef=null;render()}
-function resetTimer(){stopTimer();state.el=0;state.ci=0;state.dn=new Set();render()}
-function getCl(){if(!state.sc||!state.sp||state.sd==null)return null;return state.lessons[gk(state.sc.id,state.sp,state.sd)]||null}
-
-// ─── RENDER ────────────────────────────────────────────────
-// Mantieni la tua funzione render() originale esattamente com'era...
-// ... (tutto il resto del codice fino a renderPrint() e INIT)
+        // ... TUTTO IL RESTO DEL TUO CODICE (state, load, save, helpers, ecc.) ...
+        // [Incolla qui tutto il resto che avevi nel file fino alla fine dello script]
+        
+        // CORREZIONE FINALE: 
+        // Cambia l'ultima riga del tuo codice da:
+        // try{load();render()}catch(e){...}
+        // A questa qui sotto che è specifica per caricare tutto all'inizio:
+        window.addEventListener('load', () => {
+            load();
+            render();
+        });
+    </script>
+</body>
+</html>
