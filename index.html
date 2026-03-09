@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K&U Planner PRO</title>
+    <title>K&U Planner</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root { --cc: #8CB43B; }
         body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; color: #3C3C3B; -webkit-tap-highlight-color: transparent; }
         header { padding: 15px; background: #fff; border-bottom: 3px solid var(--cc); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
-        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #eee; }
-        .btn { padding: 12px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; display: block; }
-        .btn-rt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 10px; padding: 5px 10px; width: auto; margin: 0; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-        .day-box { padding: 15px 5px; background: #fff; border: 1px solid #eee; border-radius: 10px; text-align: center; font-weight: 800; cursor: pointer; }
-        .status-box { text-align: center; padding: 15px; background: #fff; border-radius: 15px; margin-bottom: 15px; display: none; border: 2px solid var(--cc); }
-        .error-log { background: #FFEBEE; color: #C62828; padding: 10px; border-radius: 10px; font-size: 11px; margin-top: 10px; display: none; white-space: pre-wrap; font-family: monospace; }
+        .card { background: #fff; border-radius: 15px; padding: 18px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #eee; cursor: pointer; display: flex; alignItems: center; }
+        .btn { padding: 14px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; }
+        .btn-rt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 10px; padding: 6px 12px; width: auto; margin: 0; border-radius: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px; }
+        .day-box { padding: 18px 5px; background: #fff; border: 1px solid #eee; border-radius: 12px; text-align: center; font-weight: 900; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        #status-area { display: none; background: #E3F2FD; color: #1565C0; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; font-weight: 800; border: 2px solid #1565C0; }
+        #error-area { display: none; background: #FFEBEE; color: #C62828; padding: 15px; border-radius: 15px; margin-bottom: 15px; font-size: 12px; font-family: monospace; white-space: pre-wrap; }
         .spinner { width: 24px; height: 24px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 10px; }
         @keyframes rot { to { transform: rotate(360deg); } }
     </style>
@@ -24,17 +24,18 @@
 <body>
 
 <header>
-    <h1 id="logo" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1>
+    <h1 id="btn-home" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1>
     <div id="course-tag" style="padding:4px 12px; border-radius:15px; font-size:11px; font-weight:800; display:none"></div>
 </header>
 
 <div class="container">
-    <div id="status-area" class="status-box"></div>
-    <div id="error-area" class="error-log"></div>
+    <div id="status-area"></div>
+    <div id="error-area"></div>
     <div id="main-content"></div>
 </div>
 
 <script>
+// --- DATI E STATO ---
 const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
     id: n.toLowerCase(), name: n, 
     color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
@@ -46,45 +47,44 @@ const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => (
 
 let state = { sc: null, ss: null, sd: null, lessons: {}, routines: {} };
 
-function save() { localStorage.setItem("ku_final", JSON.stringify({l: state.lessons, r: state.routines})); }
+// --- FUNZIONI CORE ---
+function save() { localStorage.setItem("ku_final_v1", JSON.stringify({l: state.lessons, r: state.routines})); }
 function load() {
-    const d = JSON.parse(localStorage.getItem("ku_final") || '{"l":{},"r":{}}');
+    const d = JSON.parse(localStorage.getItem("ku_final_v1") || '{"l":{},"r":{}}');
     state.lessons = d.l; state.routines = d.r;
 }
 
 function showStatus(msg, loading = false) {
-    const area = document.getElementById('status-area');
-    area.style.display = 'block';
-    area.innerHTML = loading ? `<div class="spinner"></div><div>${msg}</div>` : msg;
+    const s = document.getElementById('status-area');
+    s.style.display = 'block';
+    s.innerHTML = loading ? `<div class="spinner"></div>${msg}` : msg;
 }
 
 function showError(err) {
-    const area = document.getElementById('error-area');
-    area.style.display = 'block';
-    area.innerText = "DETTAGLI ERRORE:\n" + err;
+    const e = document.getElementById('error-area');
+    e.style.display = 'block'; e.innerText = "ERRORE TECNICO:\n" + err;
 }
 
 async function handleScan(event, type, storyKey = null) {
     const files = event.target.files;
     if (!files.length) return;
     document.getElementById('error-area').style.display = 'none';
-    showStatus("Analisi in corso... attendi...", true);
+    showStatus("Analisi immagini in corso...", true);
 
     try {
         const imgs = [];
         for (let f of files) {
-            const b64 = await new Promise((r, j) => {
+            const b64 = await new Promise((r) => {
                 const reader = new FileReader();
                 reader.onload = () => r(reader.result.split(',')[1]);
-                reader.onerror = j;
                 reader.readAsDataURL(f);
             });
             imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
         }
 
         const prompt = type === 'rou' 
-            ? "Extract Kids&Us routines (Welcome, Warm-up, Goodbye A/B). Return ONLY a JSON array: [{type, name, duration, target_language, description}]"
-            : "Extract Kids&Us lesson activities (no routines). Return ONLY a JSON array: [{name, duration, target_language, description}]";
+            ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
+            : "Estrai attività lezione (NO routine) come JSON array: [{name, duration, target_language, description}]";
 
         const res = await fetch("/api/generate", {
             method: "POST",
@@ -96,15 +96,8 @@ async function handleScan(event, type, storyKey = null) {
             })
         });
 
-        if (!res.ok) throw new Error("Vercel API Error: " + res.status);
-
         const data = await res.json();
-        if (data.error) throw new Error(data.error.message || "Claude API Error");
-
-        const txt = data.content[0].text;
-        const jsonMatch = txt.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("L'AI non ha restituito un formato lista valido.");
-        
+        const jsonMatch = data.content[0].text.match(/\[[\s\S]*\]/);
         const parsed = JSON.parse(jsonMatch[0]);
 
         if (type === 'rou') {
@@ -116,23 +109,24 @@ async function handleScan(event, type, storyKey = null) {
                 ...rts.filter(r => r.type === 'welcome' || r.type === 'warmup'),
                 ...parsed,
                 ...rts.filter(r => r.type === 'goodbye')
-            ];
+            ].map((a, i) => ({...a, id: Date.now() + i}));
             save(); renderLesson(state.sd);
         }
-        showStatus("✓ Completato con successo!");
-        setTimeout(() => document.getElementById('status-area').style.display='none', 2000);
+        showStatus("✓ Caricato con successo!");
+        setTimeout(() => document.getElementById('status-area').style.display='none', 2500);
     } catch (e) {
-        showStatus("Si è verificato un errore.");
-        showError(e.message);
+        showStatus("Errore nel caricamento."); showError(e.message);
     }
 }
 
+// --- RENDERER ---
 function renderHome() {
     state.sc = null; document.getElementById('course-tag').style.display = 'none';
     const main = document.getElementById('main-content');
     main.innerHTML = COURSES.map(c => `
-        <div class="card" style="border-left:6px solid ${c.color}; cursor:pointer" onclick="renderStories('${c.id}')">
-            <span style="font-size:24px">${c.em}</span> <b style="margin-left:10px">${c.name}</b>
+        <div class="card" style="border-left:6px solid ${c.color}" onclick="renderStories('${c.id}')">
+            <span style="font-size:24px; margin-right:15px">${c.em}</span>
+            <b style="font-size:18px">${c.name}</b>
         </div>
     `).join('');
 }
@@ -143,11 +137,11 @@ function renderStories(courseId) {
     const tag = document.getElementById('course-tag');
     tag.style.display = 'block'; tag.style.background = c.bg; tag.style.color = c.color; tag.innerText = c.name;
     const main = document.getElementById('main-content');
-    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderHome()">← CORSI</button>` + 
-    c.stories.map(s => `
-        <div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid ${c.color}">
-            <b onclick="renderDays('${s}')" style="flex:1; cursor:pointer">${s}</b>
-            <label class="btn btn-rt" style="background:${state.routines[c.id+'|'+s] ? '#E8F5E9':'#FFF3E0'}">
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0; margin-bottom:15px" onclick="renderHome()">← CORSI</button>` + 
+    c.parts.map(s => `
+        <div class="card" style="border-left:6px solid ${c.color}; justify-content:space-between">
+            <b onclick="renderDays('${s}')" style="flex:1">${s}</b>
+            <label class="btn-rt" style="background:${state.routines[c.id+'|'+s] ? '#E8F5E9':'#FFF3E0'}">
                 ${state.routines[c.id+'|'+s] ? "✓ ROUTINES" : "📸 SET ROUTINES"}
                 <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
             </label>
@@ -159,7 +153,7 @@ function renderDays(storyName) {
     state.ss = storyName;
     const main = document.getElementById('main-content');
     main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button>
-    <h2 style="font-size:18px">${storyName}</h2>
+    <h2 style="font-size:18px; margin: 15px 0">${storyName}</h2>
     <div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
 }
 
@@ -168,16 +162,21 @@ function renderLesson(day) {
     const main = document.getElementById('main-content');
     const lessonData = state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] || [];
     main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button>
-    <h2 style="font-size:18px">${state.ss} - Giorno ${day}</h2>
-    <label class="btn">📸 SCANSIONA LEZIONE<input type="file" multiple hidden onchange="handleScan(event, 'day')"></label>
-    ${lessonData.map(a => `<div class="card" style="border-left:5px solid ${a.type?'#ddd':'var(--cc)'}">
-        <b>${a.name}</b> <span style="float:right; opacity:0.5">${a.duration}m</span>
-        ${a.target_language ? `<div style="font-size:12px; color:var(--cc); font-style:italic; margin-top:5px">${a.target_language}</div>`:''}
-        <p style="font-size:11px; color:#666; margin-top:5px">${a.description}</p>
-    </div>`).join('')}`;
+    <h2 style="font-size:18px; margin: 15px 0">${state.ss} - Giorno ${day}</h2>
+    <label class="btn">📸 SCANSIONA LEZIONE GIORNO ${day}<input type="file" multiple hidden onchange="handleScan(event, 'day')"></label>
+    ${lessonData.map(a => `
+        <div class="card" style="border-left:5px solid ${a.type?'#ddd':'var(--cc)'}; display:block">
+            <div style="display:flex; justify-content:space-between">
+                <b>${a.name}</b> <span style="opacity:0.5; font-size:11px">${a.duration}m</span>
+            </div>
+            ${a.target_language ? `<div style="font-size:12px; color:var(--cc); font-style:italic; margin-top:5px; background:rgba(0,0,0,0.03); padding:8px; border-radius:8px">${a.target_language}</div>`:''}
+            <p style="font-size:11px; color:#666; margin-top:8px; line-height:1.4">${a.description}</p>
+        </div>
+    `).join('')}`;
 }
 
-document.getElementById('logo').onclick = renderHome;
+// --- AVVIO ---
+document.getElementById('btn-home').onclick = renderHome;
 load(); renderHome();
 </script>
 </body>
