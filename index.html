@@ -34,27 +34,29 @@ async function handleScan(event, type, storyKey) {
             imgs.push({type: "image", source: {type: "base64", media_type: "image/png", data: b64}});
         }
         
-        // --- QUESTA È LA CHIAMATA SICURA ---
         const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "claude-3-opus-20240229", // Proviamo il modello più alto se gli altri falliscono
+                model: "claude-3-opus-20240229", // MODELLO OPUS: PIÙ COMPATIBILE PER NUOVI ACCOUNT
                 max_tokens: 4000,
-                messages: [{ role: "user", content: [...imgs, { type: "text", text: "Analizza immagine e restituisci JSON: [{name, duration, target_language, description}]" }] }]
+                messages: [{ role: "user", content: [...imgs, { type: "text", text: "Analizza screenshot e restituisci SOLO array JSON: [{name, duration, target_language, description}]" }] }]
             })
         });
 
         const data = await res.json();
         
         if (data.error) {
-            // Se fallisce anche Opus, il codice proverà automaticamente l'ultimo rimasto
-            console.log("Riprovo con un altro modello...");
-            return alert("Errore di configurazione Anthropic. Verifica la dashboard.");
+            alert("ERRORE CLAUDE: " + data.error.message);
+            throw new Error(data.error.message);
         }
 
-        const responseText = data.content[0].text;
-        const parsed = JSON.parse(responseText.match(/\[[\s\S]*\]/)[0]);
+        const responseText = data.content && data.content[0] ? data.content[0].text : "";
+        if (!responseText) throw new Error("Risposta vuota dall'AI.");
+
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error("Formato dati non trovato.");
+        const parsed = JSON.parse(jsonMatch[0]);
 
         if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; save(); renderStories(state.sc.id); } 
         else {
@@ -63,7 +65,7 @@ async function handleScan(event, type, storyKey) {
             save(); renderLesson(state.sd);
         }
         status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
-    } catch (e) { alert("DEBUG: " + e.message); }
+    } catch (e) { alert("DEBUG: " + e.message); status.style.display = 'none'; }
 }
 
 function renderHome() {
@@ -76,7 +78,7 @@ function renderStories(courseId) {
     let html = `<button class="btn" style="background:none; color:${c.color}; width:auto; padding:0; margin-bottom:15px" onclick="renderHome()">← CORSI</button>`;
     c.parts.forEach(s => {
         const hasR = !!state.routines[c.id + '|' + s];
-        html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:12px; border-radius:10px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
+        html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
