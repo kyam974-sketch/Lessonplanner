@@ -1,15 +1,17 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  
+  // Questa variabile la prende dalle Environment Variables classiche di Vercel,
+  // NON da quel pannello AI Gateway che vedi nello screenshot.
   const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'Chiave non trovata nelle variabili di Vercel' });
+  
+  if (!apiKey) return res.status(500).json({ error: 'Chiave API non configurata correttamente.' });
 
   try {
     const { prompt, imageB64 } = req.body;
 
-    // Usiamo Gemini 1.5 Flash che è il più compatibile in assoluto con le chiavi standard
-    const modelId = "gemini-1.5-flash";
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
+    // Chiamata DIRETTA a Google (Bypassa Vercel AI Gateway)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
