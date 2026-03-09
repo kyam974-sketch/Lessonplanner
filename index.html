@@ -11,12 +11,10 @@
     <style>
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height:100vh}
-        .btn{padding:10px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:800;font-family:'Nunito';transition:all 0.2s;display:block;text-align:center}
-        .btn:active{transform:scale(0.95)}
-        .card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.05);margin-bottom:12px;animation:fi 0.3s ease-out}
-        @keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .btn{padding:12px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:800;font-family:'Nunito';display:block;width:100%;transition:0.2s}
+        .card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.05);margin-bottom:12px}
         .routine-tag{font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;text-transform:uppercase;margin-bottom:4px;display:inline-block}
-        .spinner{width:20px;height:20px;border:3px solid rgba(0,0,0,0.1);border-top-color:#F26522;border-radius:50%;animation:rot .8s linear infinite;margin:0 auto 10px}
+        .spinner{width:24px;height:24px;border:3px solid rgba(0,0,0,0.1);border-top-color:#F26522;border-radius:50%;animation:rot .8s linear infinite;margin:10px auto}
         @keyframes rot{to{transform:rotate(360deg)}}
     </style>
 </head>
@@ -26,23 +24,27 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const CS = [
-            {id:"mousy",name:"Mousy",color:"#8CB43B",bg:"#F0F7E1",em:"🐭",age:"1 anno",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
-            {id:"linda",name:"Linda",color:"#F26522",bg:"#FFF0E6",em:"🐱",age:"2 anni",parts:["Part One","Part Two","Part Three","Part Four"],dp:10},
-            {id:"sam",name:"Sam",color:"#00B3B0",bg:"#E0F7F7",em:"🧸",age:"3 anni",parts:["Story 1","Story 2","Story 3","Story 4"],dp:10},
-            {id:"emma",name:"Emma",color:"#E878A0",bg:"#FFF0F5",em:"🦋",age:"4 anni",parts:["Story 1","Story 2","Story 3","Story 4"],dp:10},
-            {id:"oliver",name:"Oliver",color:"#00B3B0",bg:"#E0F7F7",em:"🐸",age:"5 anni",parts:["Story 1","Story 2","Story 3","Story 4"],dp:10},
-            {id:"marcia",name:"Marcia",color:"#E94E58",bg:"#FFEBEE",em:"🎀",age:"6 anni",parts:["Story 1","Story 2","Story 3","Story 4"],dp:10}
-        ];
+        // TUTTI I CORSI DIVISI IN 4 STORIE DA 10 GIORNI
+        const CS = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((name, i) => {
+            const colors = ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"];
+            const bgs = ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"];
+            const emojis = ["🐭","🐱","🧸","🦋","🐸","🎀"];
+            return {
+                id: name.toLowerCase(),
+                name: name,
+                color: colors[i],
+                bg: bgs[i],
+                em: emojis[i],
+                parts: ["Story 1", "Story 2", "Story 3", "Story 4"],
+                dp: 10
+            };
+        });
 
         function App() {
             const [state, setState] = useState({
                 view: "home", sc: null, sp: null, sd: null, 
-                lessons: {}, routines: {}, 
-                scn: false, ss: ""
+                lessons: {}, routines: {}, scn: false, ss: ""
             });
-            const frDay = useRef(null);
-            const frRou = useRef(null);
 
             useEffect(() => {
                 const l = localStorage.getItem("ku-lessons");
@@ -56,14 +58,9 @@
             }, [state.lessons, state.routines]);
 
             const cleanJson = (txt) => {
-                try {
-                    const clean = txt.replace(/```json\n?|```/g, "").trim();
-                    return JSON.parse(clean);
-                } catch (e) {
-                    const match = txt.match(/\[[\s\S]*\]/);
-                    if (match) return JSON.parse(match[0]);
-                    throw new Error("Formato dati non valido");
-                }
+                const clean = txt.replace(/```json\n?|```/g, "").trim();
+                const match = clean.match(/\[[\s\S]*\]/);
+                return match ? JSON.parse(match[0]) : JSON.parse(clean);
             };
 
             const getImgs = async (files) => {
@@ -79,55 +76,41 @@
                 return res;
             };
 
-            const scanRoutines = async (files) => {
+            const handleScan = async (files, type) => {
                 if(!files.length) return;
-                setState(s => ({...s, scn: true, ss: "Analisi Routine..."}));
+                setState(s => ({...s, scn: true, ss: type === 'rou' ? "Estrazione Routine A/B..." : "Analisi Lezione..."}));
+                
                 try {
                     const imgs = await getImgs(files);
+                    const prompt = type === 'rou' 
+                        ? "Analizza routine Kids&Us. Estrai Welcome, Warm-up e Goodbye (Version A e B se presenti). Per ogni routine: type (welcome/warmup/goodbye), name, duration, tracks, target_language, description. JSON array ONLY."
+                        : "Extract Kids&Us lesson activities (NO routines) as JSON array: [{name, duration, tracks, target_language, description}]";
+
                     const res = await fetch("/api/generate", {
                         method: "POST",
                         headers: {"Content-Type": "application/json"},
                         body: JSON.stringify({
                             model: "claude-3-5-sonnet-20240620",
                             max_tokens: 4000,
-                            messages: [{role: "user", content: [...imgs, {type: "text", text: "Analizza routine Kids&Us. Estrai Welcome, Warm-up e Goodbye. Per ogni routine: type (welcome/warmup/goodbye), name, duration, tracks, target_language, description. JSON array ONLY."}]}]
+                            messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
                         })
                     });
                     const d = await res.json();
                     const parsed = cleanJson(d.content[0].text);
-                    const rKey = `${state.sc.id}|${state.sp}`;
-                    setState(s => ({...s, routines: {...s.routines, [rKey]: parsed}, scn: false, ss: ""}));
-                } catch (e) { setState(s => ({...s, ss: "Errore: " + e.message, scn: false})); }
-            };
-
-            const scanDay = async (files) => {
-                if(!files.length) return;
-                setState(s => ({...s, scn: true, ss: "Analisi Lezione..."}));
-                try {
-                    const imgs = await getImgs(files);
-                    const res = await fetch("/api/generate", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({
-                            model: "claude-3-5-sonnet-20240620",
-                            max_tokens: 4000,
-                            messages: [{role: "user", content: [...imgs, {type: "text", text: "Extract lesson activities (no routines) as JSON array: [{name, duration, tracks, target_language, description}]"}]}]
-                        })
-                    });
-                    const d = await res.json();
-                    const mainActs = cleanJson(d.content[0].text);
                     
                     const rKey = `${state.sc.id}|${state.sp}`;
-                    const savedRoutines = state.routines[rKey] || [];
-                    
-                    const allActs = [
-                        ...savedRoutines.filter(r => r.type === "welcome" || r.type === "warmup"),
-                        ...mainActs,
-                        ...savedRoutines.filter(r => r.type === "goodbye")
-                    ].map((a, i) => ({...a, id: "a"+Date.now()+i}));
-
-                    const lKey = `${state.sc.id}|${state.sp}|${state.sd}`;
-                    setState(s => ({...s, lessons: {...s.lessons, [lKey]: allActs}, scn: false, ss: ""}));
+                    if(type === 'rou') {
+                        setState(s => ({...s, routines: {...s.routines, [rKey]: parsed}, scn: false, ss: ""}));
+                    } else {
+                        const savedRoutines = state.routines[rKey] || [];
+                        const allActs = [
+                            ...savedRoutines.filter(r => r.type === "welcome" || r.type === "warmup"),
+                            ...parsed,
+                            ...savedRoutines.filter(r => r.type === "goodbye")
+                        ].map((a, i) => ({...a, id: "a"+Date.now()+i}));
+                        const lKey = `${state.sc.id}|${state.sp}|${state.sd}`;
+                        setState(s => ({...s, lessons: {...s.lessons, [lKey]: allActs}, scn: false, ss: ""}));
+                    }
                 } catch (e) { setState(s => ({...s, ss: "Errore: " + e.message, scn: false})); }
             };
 
@@ -137,7 +120,7 @@
             return (
                 <div>
                     <header style={{padding:15, background:"#fff", borderBottom:`3px solid ${cc}`, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:100}}>
-                        <h1 onClick={() => setState(s => ({...s, view: "home", sc: null}))} style={{fontSize:16, fontWeight:900, cursor:"pointer"}}>KIDS&US PLANNER</h1>
+                        <h1 onClick={() => setState(s => ({...s, view: "home", sc: null}))} style={{fontSize:16, fontWeight:900, cursor:"pointer"}}>K&U PLANNER</h1>
                         {state.sc && <div style={{background:state.sc.bg, color:cc, padding:"4px 10px", borderRadius:15, fontSize:11, fontWeight:800}}>{state.sc.name}</div>}
                     </header>
 
@@ -150,65 +133,59 @@
 
                         {state.view === "course" && (
                             <div>
-                                <button onClick={() => setState(s => ({...s, view: "home"}))} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15, fontSize:13}}>← INDIETRO</button>
-                                
-                                <div style={{background:"#fff", padding:15, borderRadius:15, marginBottom:20, border:`2px dashed ${cc}40`, textAlign:"center"}}>
-                                    <h3 style={{fontSize:12, marginBottom:10, color:"#888"}}>ROUTINE PER {state.sp}</h3>
-                                    <input type="file" ref={frRou} multiple style={{display:"none"}} onChange={e => scanRoutines(e.target.files)} />
-                                    <button onClick={() => frRou.current.click()} className="btn" style={{background:cc, color:"#fff", width:"100%", fontSize:12}}>
-                                        {state.routines[`${state.sc.id}|${state.sp}`] ? "✓ ROUTINE CARICATE" : "📸 CARICA ROUTINE STORIA"}
-                                    </button>
-                                </div>
-
-                                <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8}}>
-                                    {[...Array(state.sc.dp)].map((_, i) => (
-                                        <div key={i} onClick={() => setState(s => ({...s, sd: i+1, view: "lesson"}))} style={{padding:15, background:"#fff", border:"1px solid #eee", borderRadius:10, textAlign:"center", cursor:"pointer", fontWeight:700, fontSize:13}}>
-                                            {i+1}
+                                <button onClick={() => setState(s => ({...s, view: "home"}))} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← BACK</button>
+                                {state.sc.parts.map(p => (
+                                    <div key={p} style={{marginBottom:25}}>
+                                        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
+                                            <h3 style={{fontSize:14, fontWeight:900, color:cc}}>{p}</h3>
+                                            <label style={{background:state.routines[`${state.sc.id}|${p}`] ? "#E8F5E9" : "#FFF3E0", padding:"6px 12px", borderRadius:10, fontSize:10, fontWeight:900, cursor:"pointer", border:"1px solid #0001"}}>
+                                                {state.routines[`${state.sc.id}|${p}`] ? "✓ ROUTINES OK" : "📸 SET ROUTINES"}
+                                                <input type="file" multiple hidden onChange={e => {setState(s=>({...s, sp:p})); handleScan(e.target.files, 'rou')}} />
+                                            </label>
                                         </div>
-                                    ))}
-                                </div>
+                                        <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8}}>
+                                            {[...Array(state.sc.dp)].map((_, i) => (
+                                                <div key={i} onClick={() => setState(s => ({...s, sp: p, sd: i+1, view: "lesson"}))} style={{padding:15, background:"#fff", border:"1px solid #eee", borderRadius:12, textAlign:"center", cursor:"pointer", fontWeight:800, fontSize:13}}>
+                                                    {i+1}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
                         {state.view === "lesson" && (
                             <div>
-                                <button onClick={() => setState(s => ({...s, view: "course"}))} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15, fontSize:13}}>← GIORNI</button>
+                                <button onClick={() => setState(s => ({...s, view: "course"}))} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← GIORNI</button>
                                 <h2 style={{fontSize:18, marginBottom:15}}>{state.sp} - Day {state.sd}</h2>
                                 
-                                <div style={{background:"#fff", padding:20, borderRadius:20, textAlign:"center", boxShadow:"0 4px 12px rgba(0,0,0,0.05)", marginBottom:20}}>
-                                    <input type="file" ref={frDay} multiple style={{display:"none"}} onChange={e => scanDay(e.target.files)} />
-                                    <button onClick={() => frDay.current.click()} className="btn" style={{background:cc, color:"#fff", width:"100%", padding:14}}>
-                                        📸 SCAN LEZIONE DEL GIORNO
-                                    </button>
-                                </div>
+                                <label className="btn" style={{background:cc, color:"#fff", textAlign:"center", marginBottom:20}}>
+                                    📸 SCANSIONA LEZIONE
+                                    <input type="file" multiple hidden onChange={e => handleScan(e.target.files, 'day')} />
+                                </label>
 
-                                {state.scn && (
-                                    <div style={{padding:20, background:"#fff", borderRadius:15, textAlign:"center", marginBottom:20}}>
-                                        <div className="spinner"></div>
-                                        <div style={{fontSize:13, fontWeight:700, color:cc}}>{state.ss}</div>
-                                    </div>
-                                )}
+                                {state.scn && <div style={{textAlign:"center", padding:10}}><div className="spinner"></div><p style={{fontSize:12, fontWeight:800, color:cc}}>{state.ss}</p></div>}
 
-                                {currentLesson.length > 0 ? currentLesson.map((a, i) => (
-                                    <div key={a.id} className="card" style={{borderLeft:`5px solid ${a.type ? "#ddd" : cc}`}}>
-                                        <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
+                                {currentLesson.map((a, i) => (
+                                    <div key={a.id} className="card" style={{borderLeft:`5px solid ${a.type ? "#bbb" : cc}`}}>
+                                        <div style={{display:"flex", justifyContent:"space-between"}}>
                                             <span style={{flex:1}}>
                                                 {a.type && <span className="routine-tag" style={{background:cc, color:"#fff"}}>{a.type}</span>}
                                                 <div style={{fontWeight:900, fontSize:14}}>{a.name}</div>
                                             </span>
-                                            <span style={{fontSize:11, opacity:0.6, fontWeight:700}}>{a.duration}m</span>
+                                            <span style={{fontSize:11, fontWeight:800, opacity:0.5}}>{a.duration}m</span>
                                         </div>
-                                        {a.target_language && <div style={{fontSize:12, color:cc, background:cc+'08', padding:6, borderRadius:8, borderLeft:`2px solid ${cc}`, marginTop:4}}><i>{a.target_language}</i></div>}
-                                        {a.description && <p style={{fontSize:11, color:"#666", marginTop:6, lineHeight:1.4}}>{a.description}</p>}
+                                        {a.target_language && <div style={{fontSize:12, color:cc, background:cc+'08', padding:6, borderRadius:8, marginTop:5}}><i>{a.target_language}</i></div>}
+                                        {a.description && <p style={{fontSize:11, color:"#666", marginTop:5, lineHeight:1.4}}>{a.description}</p>}
                                     </div>
-                                )) : !state.scn && <div style={{textAlign:"center", color:"#bbb", padding:20, fontSize:13}}>Nessuna attività. Carica le foto!</div>}
+                                ))}
                             </div>
                         )}
                     </main>
                 </div>
             );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('app'));
         root.render(<App />);
     </script>
