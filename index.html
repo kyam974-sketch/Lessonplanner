@@ -11,86 +11,59 @@
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
         .card { background: #fff; border-radius: 15px; padding: 18px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #8CB43B; cursor: pointer; }
         .btn { padding: 14px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: #8CB43B; color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; }
-        .btn-rt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 10px; padding: 6px 10px; width: auto; border-radius: 8px; font-weight: 900; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px; }
-        .day-box { padding: 18px 5px; background: #fff; border: 1px solid #eee; border-radius: 12px; text-align: center; font-weight: 900; cursor: pointer; }
         #status-area { display: none; background: #E3F2FD; color: #1565C0; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; font-weight: 800; border: 2px solid #1565C0; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 5px; }
         @keyframes rot { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-<header>
-    <h1 onclick="renderHome()" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1>
-    <div id="course-tag" style="padding:4px 12px; border-radius:15px; font-size:11px; font-weight:800; display:none"></div>
-</header>
-<div class="container">
-    <div id="status-area"></div>
-    <div id="main-content"></div>
-</div>
+<header><h1 onclick="renderHome()" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1><div id="course-tag" style="padding:4px 12px; border-radius:15px; font-size:11px; font-weight:800; display:none"></div></header>
+<div class="container"><div id="status-area"></div><div id="main-content"></div></div>
 <script>
-const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
-    id: n.toLowerCase(), name: n, 
-    color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
-    bg: ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"][i],
-    em: ["🐭","🐱","🧸","🦋","🐸","🎀"][i],
-    parts: ["Story 1", "Story 2", "Story 3", "Story 4"],
-    days: 10
-}));
+const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({ id: n.toLowerCase(), name: n, color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i], bg: ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"][i], em: ["🐭","🐱","🧸","🦋","🐸","🎀"][i], parts: ["Story 1", "Story 2", "Story 3", "Story 4"], days: 10 }));
 let state = { sc: null, ss: null, sd: null, lessons: JSON.parse(localStorage.getItem("ku_l") || "{}"), routines: JSON.parse(localStorage.getItem("ku_r") || "{}") };
 function save() { localStorage.setItem("ku_l", JSON.stringify(state.lessons)); localStorage.setItem("ku_r", JSON.stringify(state.routines)); }
 
 async function handleScan(event, type, storyKey) {
-    const files = event.target.files;
-    if (!files.length) return;
-    const status = document.getElementById('status-area');
-    status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi in corso...';
+    const files = event.target.files; if (!files.length) return;
+    const status = document.getElementById('status-area'); status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi...';
     try {
         const imgs = [];
         for (let f of files) {
             const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result.split(',')[1]); rd.readAsDataURL(f); });
-            imgs.push({type: "image", source: {type: "base64", media_type: "image/jpeg", data: b64}});
+            imgs.push({type: "image", source: {type: "base64", media_type: "image/png", data: b64}});
         }
-        const prompt = type === 'rou' ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON: [{type, name, duration, target_language, description}]" : "Estrai le attività della lezione (senza routine) come JSON: [{name, duration, target_language, description}]";
-        
         const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 model: "claude-3-5-sonnet-20240620",
                 max_tokens: 4000,
-                messages: [{ role: "user", content: [...imgs, { type: "text", text: prompt }] }]
+                messages: [{ role: "user", content: [...imgs, { type: "text", text: "Analizza e restituisci SOLO array JSON: [{name, duration, target_language, description}]" }] }]
             })
         });
 
         const data = await res.json();
         
-        // --- PROTEZIONE CONTRO L'ERRORE UNDEFINED ---
-        let responseText = "";
-        if (data && data.content && data.content[0] && data.content[0].text) {
-            responseText = data.content[0].text;
-        } else if (data && data.text) {
-            responseText = data.text;
-        } else {
-            throw new Error("Risposta incompleta. Riprova con una foto più chiara.");
+        // --- DIAGNOSTICA ---
+        if (data.error) {
+            alert("ERRORE CLAUDE: " + JSON.stringify(data.error));
+            throw new Error(data.error.message || "Errore API");
         }
 
-        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("Dati non trovati nella risposta.");
-        const parsed = JSON.parse(jsonMatch[0]);
+        const responseText = data.content[0].text;
+        const parsed = JSON.parse(responseText.match(/\[[\s\S]*\]/)[0]);
 
-        if (type === 'rou') { 
-            state.routines[state.sc.id+'|'+storyKey] = parsed; 
-            save(); renderStories(state.sc.id); 
-        } else {
+        if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; save(); renderStories(state.sc.id); } 
+        else {
             const rts = state.routines[state.sc.id+'|'+state.ss] || [];
             state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] = [...rts.filter(r => r.type === 'welcome' || r.type === 'warmup'), ...parsed, ...rts.filter(r => r.type === 'goodbye')];
             save(); renderLesson(state.sd);
         }
-        status.innerHTML = "✓ Caricato!"; setTimeout(() => status.style.display = 'none', 2000);
+        status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
     } catch (e) { 
-        status.innerHTML = "Errore: " + e.message; 
-        console.error("Full Error:", e);
+        alert("DEBUG: " + e.message);
+        status.innerHTML = "Errore. Guarda il messaggio pop-up."; 
     }
 }
 
@@ -104,17 +77,15 @@ function renderStories(courseId) {
     let html = `<button class="btn" style="background:none; color:${c.color}; width:auto; padding:0; margin-bottom:15px" onclick="renderHome()">← CORSI</button>`;
     c.parts.forEach(s => {
         const hasR = !!state.routines[c.id + '|' + s];
-        html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label class="btn-rt" style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}">${hasR ? "✓ ROUTINES" : "📸 SET ROUTINES"}<input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
+        html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
-function renderDays(sn) {
-    state.ss = sn; document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="font-size:18px">${sn}</h2><div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
-}
+function renderDays(sn) { state.ss = sn; document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="font-size:18px">${sn}</h2><div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`; }
 function renderLesson(d) {
     state.sd = d; const data = state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] || [];
-    let html = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button><h2 style="font-size:18px">${state.ss} - Giorno ${d}</h2><label class="btn" style="background:${state.sc.color}">📸 SCAN GIORNO ${d}<input type="file" multiple hidden onchange="handleScan(event, 'day')"></label>`;
-    data.forEach(a => { html += `<div class="card" style="border-left-color:${a.type ? '#ddd' : state.sc.color}"><div style="display:flex; justify-content:space-between"><b>${a.name}</b><small>${a.duration}m</small></div><p style="font-size:11px; color:#666; margin-top:5px">${a.description || ''}</p></div>`; });
+    let html = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button><label class="btn" style="background:${state.sc.color}">📸 SCAN GIORNO ${d}<input type="file" hidden onchange="handleScan(event, 'day')"></label>`;
+    data.forEach(a => { html += `<div class="card" style="border-left-color:${state.sc.color}"><b>${a.name}</b><p style="font-size:11px; color:#666">${a.description || ''}</p></div>`; });
     document.getElementById('main-content').innerHTML = html;
 }
 renderHome();
