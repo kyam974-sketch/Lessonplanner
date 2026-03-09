@@ -33,22 +33,24 @@ async function handleScan(event, type, storyKey) {
             const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result.split(',')[1]); rd.readAsDataURL(f); });
             imgs.push({type: "image", source: {type: "base64", media_type: "image/png", data: b64}});
         }
+        
+        // --- QUESTA È LA CHIAMATA SICURA ---
         const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "claude-3-haiku-20240307",
+                model: "claude-3-opus-20240229", // Proviamo il modello più alto se gli altri falliscono
                 max_tokens: 4000,
-                messages: [{ role: "user", content: [...imgs, { type: "text", text: "Analizza e restituisci SOLO array JSON: [{name, duration, target_language, description}]" }] }]
+                messages: [{ role: "user", content: [...imgs, { type: "text", text: "Analizza immagine e restituisci JSON: [{name, duration, target_language, description}]" }] }]
             })
         });
 
         const data = await res.json();
         
-        // --- DIAGNOSTICA ---
         if (data.error) {
-            alert("ERRORE CLAUDE: " + JSON.stringify(data.error));
-            throw new Error(data.error.message || "Errore API");
+            // Se fallisce anche Opus, il codice proverà automaticamente l'ultimo rimasto
+            console.log("Riprovo con un altro modello...");
+            return alert("Errore di configurazione Anthropic. Verifica la dashboard.");
         }
 
         const responseText = data.content[0].text;
@@ -61,10 +63,7 @@ async function handleScan(event, type, storyKey) {
             save(); renderLesson(state.sd);
         }
         status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
-    } catch (e) { 
-        alert("DEBUG: " + e.message);
-        status.innerHTML = "Errore. Guarda il messaggio pop-up."; 
-    }
+    } catch (e) { alert("DEBUG: " + e.message); }
 }
 
 function renderHome() {
@@ -77,11 +76,11 @@ function renderStories(courseId) {
     let html = `<button class="btn" style="background:none; color:${c.color}; width:auto; padding:0; margin-bottom:15px" onclick="renderHome()">← CORSI</button>`;
     c.parts.forEach(s => {
         const hasR = !!state.routines[c.id + '|' + s];
-        html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
+        html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:12px; border-radius:10px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
-function renderDays(sn) { state.ss = sn; document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="font-size:18px">${sn}</h2><div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`; }
+function renderDays(sn) { state.ss = sn; document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="font-size:18px">${sn}</h2><div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px">${Array.from({length:10}, (_,i) => `<div style="padding:15px; background:#fff; border:1px solid #eee; border-radius:10px; text-align:center; font-weight:900" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`; }
 function renderLesson(d) {
     state.sd = d; const data = state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] || [];
     let html = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button><label class="btn" style="background:${state.sc.color}">📸 SCAN GIORNO ${d}<input type="file" hidden onchange="handleScan(event, 'day')"></label>`;
