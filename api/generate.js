@@ -15,11 +15,12 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        // AGGIUNTO: L'header beta richiesto dalla tua documentazione
+        // Questo è il segreto che hai trovato nella documentazione!
         'anthropic-beta': 'files-api-2025-04-14'
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20240620", 
+        // Cambiato in Haiku: il modello più compatibile per i test
+        model: "claude-3-haiku-20240307", 
         max_tokens: 1024,
         messages: [{
           role: "user",
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
               type: "image",
               source: {
                 type: "base64",
-                media_type: "image/png",
+                media_type: "image/png", // Anthropic preferisce png o jpeg
                 data: imageB64
               }
             },
@@ -44,7 +45,6 @@ export default async function handler(req, res) {
     const data = await response.json();
     
     if (data.error) {
-      // Se Sonnet fallisce, proviamo Haiku automaticamente nello stesso flusso
       return res.status(401).json({ error: `Claude dice: ${data.error.message}` });
     }
 
