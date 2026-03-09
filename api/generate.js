@@ -1,28 +1,41 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   
-  // Prendiamo la chiave e puliamola da eventuali spazi o ritorni a capo invisibili
-  const rawKey = process.env.GEMINI_PLANNER_KEY || "";
-  const key = rawKey.trim();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   
-  if (!key) {
-    return res.status(500).json({ error: 'Chiave GEMINI_PLANNER_KEY non trovata. Controlla Environment Variables su Vercel.' });
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Manca la chiave ANTHROPIC_API_KEY su Vercel' });
   }
 
   try {
     const { prompt, imageB64 } = req.body;
 
-    // Endpoint ultra-specifico per il 2026
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
-
-    const response = await fetch(url, {
+    // Chiamata ad Anthropic Claude
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: "image/png", data: imageB64 } }
+        model: "claude-3-5-sonnet-20240620", // O "claude-3-7-sonnet-20250219" se disponibile
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/png",
+                data: imageB64
+              }
+            },
+            {
+              type: "text",
+              text: prompt
+            }
           ]
         }]
       })
@@ -30,20 +43,18 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // Se c'è un errore, lo mostriamo chiaramente
     if (data.error) {
-      return res.status(data.error.code || 400).json({ 
-        error: `Google dice: ${data.error.message} (Codice: ${data.error.status})` 
-      });
+      return res.status(400).json({ error: `Claude dice: ${data.error.message}` });
     }
 
-    if (data.candidates && data.candidates[0].content) {
-      res.status(200).json({ text: data.candidates[0].content.parts[0].text });
+    // Claude restituisce il testo in un formato leggermente diverso
+    if (data.content && data.content[0]) {
+      res.status(200).json({ text: data.content[0].text });
     } else {
-      res.status(500).json({ error: "Risposta vuota da Google. Prova a ricaricare." });
+      throw new Error("Nessuna risposta da Claude.");
     }
 
   } catch (err) {
-    res.status(500).json({ error: `Errore Server: ${err.message}` });
+    res.status(500).json({ error: err.message });
   }
 }
