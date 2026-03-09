@@ -1,7 +1,9 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // PULIZIA TOTALE: rimuove spazi, tabulazioni e ritorni a capo dalla chiave
+  const rawKey = process.env.ANTHROPIC_API_KEY || "";
+  const apiKey = rawKey.replace(/\s+/g, ''); 
   
   if (!apiKey) {
     return res.status(500).json({ error: 'Manca la chiave ANTHROPIC_API_KEY su Vercel' });
@@ -18,7 +20,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20240620", // Questo è il modello standard che funziona sempre
+        model: "claude-3-5-sonnet-20240620",
         max_tokens: 1024,
         messages: [{
           role: "user",
@@ -43,13 +45,14 @@ export default async function handler(req, res) {
     const data = await response.json();
     
     if (data.error) {
-      return res.status(400).json({ error: `Claude dice: ${data.error.message}` });
+      // Se Claude risponde ancora male, stampiamo la risposta esatta per capire
+      return res.status(401).json({ error: `Claude dice: ${data.error.message}` });
     }
 
     if (data.content && data.content[0]) {
       res.status(200).json({ text: data.content[0].text });
     } else {
-      throw new Error("Nessuna risposta da Claude.");
+      throw new Error("Risposta vuota da Claude.");
     }
 
   } catch (err) {
