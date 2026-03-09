@@ -7,30 +7,10 @@ export default async function handler(req, res) {
   try {
     const { prompt, imageB64 } = req.body;
 
-    // Ricostruiamo la struttura 'messages' che Claude esige (Field required risolto qui)
-    const anthropicPayload = {
-      model: "claude-3-haiku-20240307", // Il più veloce per i test
-      max_tokens: 4000,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/png",
-                data: imageB64
-              }
-            },
-            {
-              type: "text",
-              text: prompt || "Analizza questa immagine e compila il planner."
-            }
-          ]
-        }
-      ]
-    };
+    // Pulizia dell'immagine: rimuoviamo eventuali intestazioni data:image/... se presenti
+    const cleanImage = imageB64.includes('base64,') 
+      ? imageB64.split('base64,')[1] 
+      : imageB64;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -39,7 +19,29 @@ export default async function handler(req, res) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify(anthropicPayload)
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20240620", // Torniamo a Sonnet, più intelligente per le immagini
+        max_tokens: 4000,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data: cleanImage
+                }
+              },
+              {
+                type: "text",
+                text: prompt || "Analizza l'immagine e compila il planner."
+              }
+            ]
+          }
+        ]
+      })
     });
 
     const data = await response.json();
@@ -48,7 +50,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `Claude dice: ${data.error.message}` });
     }
 
-    // Rispediamo il risultato nel formato che l'index del Planner si aspetta
+    // Risposta standard che l'index si aspetta
     res.status(200).json(data);
 
   } catch (e) {
