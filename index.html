@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K&U Planner</title>
+    <title>K&U Planner 2026</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; padding: 0; color: #3C3C3B; }
@@ -31,7 +31,6 @@
     <div id="status-area"></div>
     <div id="main-content"></div>
 </div>
-
 <script>
 const COURSES = [
     { id: "mousy", name: "Mousy", color: "#8CB43B", bg: "#F0F7E1", em: "🐭" },
@@ -41,35 +40,32 @@ const COURSES = [
     { id: "oliver", name: "Oliver", color: "#00B3B0", bg: "#E0F7F7", em: "🐸" },
     { id: "marcia", name: "Marcia", color: "#E94E58", bg: "#FFEBEE", em: "🎀" }
 ];
-
 let state = { sc: null, ss: null, sd: null, lessons: JSON.parse(localStorage.getItem("ku_l") || "{}"), routines: JSON.parse(localStorage.getItem("ku_r") || "{}") };
 function save() { localStorage.setItem("ku_l", JSON.stringify(state.lessons)); localStorage.setItem("ku_r", JSON.stringify(state.routines)); }
 
 async function handleScan(event, type, storyKey) {
     const file = event.target.files[0]; if (!file) return;
-    const status = document.getElementById('status-area'); status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi...';
+    const status = document.getElementById('status-area'); status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi Gemini 3...';
     try {
         const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result.split(',')[1]); rd.readAsDataURL(file); });
         const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: "Estrai JSON: [{name, duration, description}]", imageB64: b64 })
+            body: JSON.stringify({ prompt: "Estrai le attività della Teacher Guide in JSON: [{name, duration, description}]. Rispondi SOLO col JSON.", imageB64: b64 })
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        
         const jsonMatch = data.text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("Formato tabella non trovato nella risposta.");
+        if (!jsonMatch) throw new Error("L'AI non ha restituito un formato valido.");
         const parsed = JSON.parse(jsonMatch[0]);
 
-        if (type === 'rou') { 
-            state.routines[state.sc.id+'|'+storyKey] = parsed; 
-        } else {
+        if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; } 
+        else {
             const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
             state.lessons[rKey] = [...(state.routines[state.sc.id+'|'+state.ss] || []), ...parsed];
         }
         save(); renderLesson(state.sd);
-        status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
+        status.innerHTML = "✓ Caricato!"; setTimeout(() => status.style.display = 'none', 2000);
     } catch (e) { alert("Errore: " + e.message); status.style.display = 'none'; }
 }
 
@@ -82,7 +78,7 @@ function addManual() {
 }
 
 function deleteActivity(index) {
-    if (confirm("Vuoi eliminare questa attività?")) {
+    if (confirm("Eliminare?")) {
         const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
         state.lessons[rKey].splice(index, 1);
         save(); renderLesson(state.sd);
@@ -91,48 +87,30 @@ function deleteActivity(index) {
 
 function renderHome() {
     state.sc = null; document.getElementById('course-tag').style.display = 'none';
-    document.getElementById('main-content').innerHTML = COURSES.map(c => `
-        <div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')">
-            <span class="emoji">${c.em}</span> <b>${c.name}</b>
-        </div>`).join('');
+    document.getElementById('main-content').innerHTML = COURSES.map(c => `<div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')"><span class="emoji">${c.em}</span> <b>${c.name}</b></div>`).join('');
 }
 
 function renderStories(id) {
     state.sc = COURSES.find(c => c.id === id);
-    const tag = document.getElementById('course-tag');
-    tag.style.display = 'block'; tag.style.background = state.sc.bg; tag.style.color = state.sc.color; tag.innerText = state.sc.name;
+    const tag = document.getElementById('course-tag'); tag.style.display = 'block'; tag.style.background = state.sc.bg; tag.style.color = state.sc.color; tag.innerText = state.sc.name;
     let html = `<button class="btn" style="background:none; color:#666" onclick="renderHome()">← CORSI</button>`;
     ["Story 1", "Story 2", "Story 3", "Story 4"].forEach(s => {
         const hasR = !!state.routines[state.sc.id + '|' + s];
-        html += `<div class="card" style="border-left-color:${state.sc.color}; justify-content:space-between">
-            <b onclick="renderDays('${s}')" style="flex:1">${s}</b>
-            <label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">
-                📸 ROUTINES <input type="file" hidden onchange="handleScan(event, 'rou', '${s}')">
-            </label>
-        </div>`;
+        html += `<div class="card" style="border-left-color:${state.sc.color}; justify-content:space-between"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
 
 function renderDays(s) {
     state.ss = s;
-    document.getElementById('main-content').innerHTML = `
-        <button class="btn" style="background:none; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button>
-        <h2 style="text-align:center">${s}</h2>
-        <div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
+    document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="text-align:center">${s}</h2><div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
 }
 
 function renderLesson(d) {
     state.sd = d;
     const activities = state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] || [];
-    let html = `
-        <button class="btn" style="background:none; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button>
-        <label class="btn btn-scan">📸 SCAN LEZIONE ${d} <input type="file" hidden onchange="handleScan(event, 'day')"></label>
-        <button class="btn btn-manual" onclick="addManual()">➕ AGGIUNGI MANUALE</button>
-    `;
-    activities.forEach((a, index) => { 
-        html += `<div class="card" style="border-left-color:${state.sc.color}" onclick="deleteActivity(${index})"><b>${a.name}</b></div>`; 
-    });
+    let html = `<button class="btn" style="background:none; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button><label class="btn btn-scan">📸 SCAN LEZIONE ${d}<input type="file" hidden onchange="handleScan(event, 'day')"></label><button class="btn btn-manual" onclick="addManual()">➕ AGGIUNGI MANUALE</button>`;
+    activities.forEach((a, index) => { html += `<div class="card" style="border-left-color:${state.sc.color}" onclick="deleteActivity(${index})"><b>${a.name}</b></div>`; });
     document.getElementById('main-content').innerHTML = html;
 }
 renderHome();
