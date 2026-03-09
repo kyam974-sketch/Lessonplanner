@@ -57,14 +57,18 @@ async function handleScan(event, type, storyKey) {
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        const parsed = JSON.parse(data.text.match(/\[[\s\S]*\]/)[0]);
+        
+        const jsonMatch = data.text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error("Formato tabella non trovato nella risposta.");
+        const parsed = JSON.parse(jsonMatch[0]);
 
-        if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; } 
-        else {
+        if (type === 'rou') { 
+            state.routines[state.sc.id+'|'+storyKey] = parsed; 
+        } else {
             const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
             state.lessons[rKey] = [...(state.routines[state.sc.id+'|'+state.ss] || []), ...parsed];
         }
-        save(); renderHome(); renderStories(state.sc.id);
+        save(); renderLesson(state.sd);
         status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
     } catch (e) { alert("Errore: " + e.message); status.style.display = 'none'; }
 }
@@ -75,6 +79,14 @@ function addManual() {
     if (!state.lessons[rKey]) state.lessons[rKey] = [];
     state.lessons[rKey].push({ name, duration: "5" });
     save(); renderLesson(state.sd);
+}
+
+function deleteActivity(index) {
+    if (confirm("Vuoi eliminare questa attività?")) {
+        const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
+        state.lessons[rKey].splice(index, 1);
+        save(); renderLesson(state.sd);
+    }
 }
 
 function renderHome() {
@@ -118,7 +130,9 @@ function renderLesson(d) {
         <label class="btn btn-scan">📸 SCAN LEZIONE ${d} <input type="file" hidden onchange="handleScan(event, 'day')"></label>
         <button class="btn btn-manual" onclick="addManual()">➕ AGGIUNGI MANUALE</button>
     `;
-    activities.forEach(a => { html += `<div class="card" style="border-left-color:${state.sc.color}"><b>${a.name}</b></div>`; });
+    activities.forEach((a, index) => { 
+        html += `<div class="card" style="border-left-color:${state.sc.color}" onclick="deleteActivity(${index})"><b>${a.name}</b></div>`; 
+    });
     document.getElementById('main-content').innerHTML = html;
 }
 renderHome();
