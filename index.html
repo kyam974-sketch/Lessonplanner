@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K&U Planner</title>
+    <title>K&U Planner PRO</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { --cc: #8CB43B; --cbg: #F0F7E1; }
+        :root { --cc: #8CB43B; }
         body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; color: #3C3C3B; -webkit-tap-highlight-color: transparent; }
         header { padding: 15px; background: #fff; border-bottom: 3px solid var(--cc); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
-        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #eee; transition: 0.2s; }
+        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #eee; }
         .btn { padding: 12px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; display: block; }
         .btn-rt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 10px; padding: 5px 10px; width: auto; margin: 0; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .day-box { padding: 15px 5px; background: #fff; border: 1px solid #eee; border-radius: 10px; text-align: center; font-weight: 800; cursor: pointer; }
-        .status-box { text-align: center; padding: 15px; background: #fff; border-radius: 15px; margin-bottom: 15px; display: none; }
+        .status-box { text-align: center; padding: 15px; background: #fff; border-radius: 15px; margin-bottom: 15px; display: none; border: 2px solid var(--cc); }
+        .error-log { background: #FFEBEE; color: #C62828; padding: 10px; border-radius: 10px; font-size: 11px; margin-top: 10px; display: none; white-space: pre-wrap; font-family: monospace; }
         .spinner { width: 24px; height: 24px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 10px; }
         @keyframes rot { to { transform: rotate(360deg); } }
-        .rt-tag { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px; background: var(--cc); color: #fff; text-transform: uppercase; margin-bottom: 4px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -30,11 +30,11 @@
 
 <div class="container">
     <div id="status-area" class="status-box"></div>
+    <div id="error-area" class="error-log"></div>
     <div id="main-content"></div>
 </div>
 
 <script>
-// --- DATI CORSI ---
 const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
     id: n.toLowerCase(), name: n, 
     color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
@@ -46,19 +46,10 @@ const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => (
 
 let state = { sc: null, ss: null, sd: null, lessons: {}, routines: {} };
 
-// --- FUNZIONI DI SISTEMA ---
-function init() {
-    const saved = localStorage.getItem("ku_v3");
-    if (saved) {
-        const data = JSON.parse(saved);
-        state.lessons = data.l || {};
-        state.routines = data.r || {};
-    }
-    renderHome();
-}
-
-function save() {
-    localStorage.setItem("ku_v3", JSON.stringify({l: state.lessons, r: state.routines}));
+function save() { localStorage.setItem("ku_final", JSON.stringify({l: state.lessons, r: state.routines})); }
+function load() {
+    const d = JSON.parse(localStorage.getItem("ku_final") || '{"l":{},"r":{}}');
+    state.lessons = d.l; state.routines = d.r;
 }
 
 function showStatus(msg, loading = false) {
@@ -67,29 +58,33 @@ function showStatus(msg, loading = false) {
     area.innerHTML = loading ? `<div class="spinner"></div><div>${msg}</div>` : msg;
 }
 
-function hideStatus() { document.getElementById('status-area').style.display = 'none'; }
+function showError(err) {
+    const area = document.getElementById('error-area');
+    area.style.display = 'block';
+    area.innerText = "DETTAGLI ERRORE:\n" + err;
+}
 
-// --- LOGICA SCAN ---
 async function handleScan(event, type, storyKey = null) {
     const files = event.target.files;
     if (!files.length) return;
-
-    showStatus(type === 'rou' ? "Analisi Routine..." : "Analisi Lezione...", true);
+    document.getElementById('error-area').style.display = 'none';
+    showStatus("Analisi in corso... attendi...", true);
 
     try {
         const imgs = [];
         for (let f of files) {
-            const b64 = await new Promise(r => {
+            const b64 = await new Promise((r, j) => {
                 const reader = new FileReader();
                 reader.onload = () => r(reader.result.split(',')[1]);
+                reader.onerror = j;
                 reader.readAsDataURL(f);
             });
             imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
         }
 
         const prompt = type === 'rou' 
-            ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
-            : "Estrai attività (NO routine) come JSON array: [{name, duration, target_language, description}]";
+            ? "Extract Kids&Us routines (Welcome, Warm-up, Goodbye A/B). Return ONLY a JSON array: [{type, name, duration, target_language, description}]"
+            : "Extract Kids&Us lesson activities (no routines). Return ONLY a JSON array: [{name, duration, target_language, description}]";
 
         const res = await fetch("/api/generate", {
             method: "POST",
@@ -101,122 +96,89 @@ async function handleScan(event, type, storyKey = null) {
             })
         });
 
+        if (!res.ok) throw new Error("Vercel API Error: " + res.status);
+
         const data = await res.json();
-        const parsed = JSON.parse(data.content[0].text.match(/\[[\s\S]*\]/)[0]);
+        if (data.error) throw new Error(data.error.message || "Claude API Error");
+
+        const txt = data.content[0].text;
+        const jsonMatch = txt.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error("L'AI non ha restituito un formato lista valido.");
+        
+        const parsed = JSON.parse(jsonMatch[0]);
 
         if (type === 'rou') {
             state.routines[`${state.sc.id}|${storyKey}`] = parsed;
-            save();
-            renderStories(state.sc.id);
-            showStatus("✓ Routine Salvate!");
+            save(); renderStories(state.sc.id);
         } else {
-            const rKey = `${state.sc.id}|${state.ss}`;
-            const rts = state.routines[rKey] || [];
-            const full = [
+            const rts = state.routines[`${state.sc.id}|${state.ss}`] || [];
+            state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] = [
                 ...rts.filter(r => r.type === 'welcome' || r.type === 'warmup'),
                 ...parsed,
                 ...rts.filter(r => r.type === 'goodbye')
-            ].map((a, i) => ({...a, id: Date.now() + i}));
-            
-            state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] = full;
-            save();
-            renderLesson(state.sd);
-            showStatus("✓ Lezione Pronta!");
+            ];
+            save(); renderLesson(state.sd);
         }
+        showStatus("✓ Completato con successo!");
+        setTimeout(() => document.getElementById('status-area').style.display='none', 2000);
     } catch (e) {
-        showStatus("Errore: " + e.message);
+        showStatus("Si è verificato un errore.");
+        showError(e.message);
     }
-    setTimeout(hideStatus, 3000);
 }
 
-// --- RENDERING ---
 function renderHome() {
-    state.sc = null;
-    document.getElementById('course-tag').style.display = 'none';
+    state.sc = null; document.getElementById('course-tag').style.display = 'none';
     const main = document.getElementById('main-content');
     main.innerHTML = COURSES.map(c => `
         <div class="card" style="border-left:6px solid ${c.color}; cursor:pointer" onclick="renderStories('${c.id}')">
-            <span style="font-size:24px">${c.em}</span> <b style="margin-left:10px; font-size:18px">${c.name}</b>
+            <span style="font-size:24px">${c.em}</span> <b style="margin-left:10px">${c.name}</b>
         </div>
     `).join('');
 }
 
 function renderStories(courseId) {
-    const c = COURSES.find(x => x.id === courseId);
-    state.sc = c;
+    const c = COURSES.find(x => x.id === courseId); state.sc = c;
     document.documentElement.style.setProperty('--cc', c.color);
     const tag = document.getElementById('course-tag');
     tag.style.display = 'block'; tag.style.background = c.bg; tag.style.color = c.color; tag.innerText = c.name;
-
     const main = document.getElementById('main-content');
-    let html = `<button class="btn" style="background:none; color:var(--cc); margin-bottom:15px; width:auto; padding:0" onclick="renderHome()">← CORSI</button>`;
-    
-    c.parts.forEach(s => {
-        const hasR = !!state.routines[`${c.id}|${s}`];
-        html += `
-            <div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left: 5px solid ${c.color}">
-                <b onclick="renderDays('${s}')" style="flex:1; cursor:pointer">${s}</b>
-                <label class="btn btn-rt" style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}">
-                    ${hasR ? "✓ ROUTINES" : "📸 SET ROUTINES"}
-                    <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
-                </label>
-            </div>
-        `;
-    });
-    main.innerHTML = html;
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderHome()">← CORSI</button>` + 
+    c.stories.map(s => `
+        <div class="card" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid ${c.color}">
+            <b onclick="renderDays('${s}')" style="flex:1; cursor:pointer">${s}</b>
+            <label class="btn btn-rt" style="background:${state.routines[c.id+'|'+s] ? '#E8F5E9':'#FFF3E0'}">
+                ${state.routines[c.id+'|'+s] ? "✓ ROUTINES" : "📸 SET ROUTINES"}
+                <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
+            </label>
+        </div>
+    `).join('');
 }
 
 function renderDays(storyName) {
     state.ss = storyName;
     const main = document.getElementById('main-content');
-    main.innerHTML = `
-        <button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button>
-        <h2 style="font-size:18px; margin: 10px 0">${storyName}</h2>
-        <div class="grid">
-            ${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}
-        </div>
-    `;
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button>
+    <h2 style="font-size:18px">${storyName}</h2>
+    <div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
 }
 
 function renderLesson(day) {
     state.sd = day;
     const main = document.getElementById('main-content');
     const lessonData = state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] || [];
-    
-    let html = `
-        <button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button>
-        <h2 style="font-size:18px; margin: 10px 0">${state.ss} - Giorno ${day}</h2>
-        <label class="btn" style="margin-bottom:20px">
-            📸 SCANSIONA LEZIONE
-            <input type="file" multiple hidden onchange="handleScan(event, 'day')">
-        </label>
-    `;
-
-    if (lessonData.length === 0) {
-        html += `<div style="text-align:center; color:#bbb; padding:40px 0">Nessuna attività. Carica le foto della TG!</div>`;
-    } else {
-        lessonData.forEach(a => {
-            html += `
-                <div class="card" style="border-left:5px solid ${a.type ? '#ddd' : 'var(--cc)'}">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px">
-                        <span style="flex:1">
-                            ${a.type ? `<span class="rt-tag">${a.type}</span>` : ''}
-                            <div style="font-weight:900; font-size:14px">${a.name}</div>
-                        </span>
-                        <span style="font-size:11px; font-weight:800; opacity:0.5">${a.duration}m</span>
-                    </div>
-                    ${a.target_language ? `<div style="font-size:12px; color:var(--cc); background:rgba(0,0,0,0.03); padding:6px; border-radius:8px; margin-top:5px"><i>${a.target_language}</i></div>` : ''}
-                    <p style="font-size:11px; color:#666; margin-top:5px; line-height:1.4">${a.description}</p>
-                </div>
-            `;
-        });
-    }
-    main.innerHTML = html;
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button>
+    <h2 style="font-size:18px">${state.ss} - Giorno ${day}</h2>
+    <label class="btn">📸 SCANSIONA LEZIONE<input type="file" multiple hidden onchange="handleScan(event, 'day')"></label>
+    ${lessonData.map(a => `<div class="card" style="border-left:5px solid ${a.type?'#ddd':'var(--cc)'}">
+        <b>${a.name}</b> <span style="float:right; opacity:0.5">${a.duration}m</span>
+        ${a.target_language ? `<div style="font-size:12px; color:var(--cc); font-style:italic; margin-top:5px">${a.target_language}</div>`:''}
+        <p style="font-size:11px; color:#666; margin-top:5px">${a.description}</p>
+    </div>`).join('')}`;
 }
 
-// --- INIT ---
 document.getElementById('logo').onclick = renderHome;
-window.onload = init;
+load(); renderHome();
 </script>
 </body>
 </html>
