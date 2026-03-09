@@ -10,7 +10,6 @@ export default async function handler(req, res) {
   try {
     const { prompt, imageB64 } = req.body;
 
-    // Chiamata ad Anthropic Claude
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -19,7 +18,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20240620", // O "claude-3-7-sonnet-20250219" se disponibile
+        model: "claude-3-5-sonnet-20240620", // Questo è il modello standard che funziona sempre
         max_tokens: 1024,
         messages: [{
           role: "user",
@@ -47,7 +46,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `Claude dice: ${data.error.message}` });
     }
 
-    // Claude restituisce il testo in un formato leggermente diverso
     if (data.content && data.content[0]) {
       res.status(200).json({ text: data.content[0].text });
     } else {
