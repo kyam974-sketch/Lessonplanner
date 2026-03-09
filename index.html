@@ -10,12 +10,16 @@
         header { padding: 15px; background: #fff; border-bottom: 3px solid #8CB43B; display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; z-index:10; }
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
         .card { background: #fff; border-radius: 15px; padding: 18px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #8CB43B; cursor: pointer; display: flex; align-items: center; }
-        .course-info { display: flex; align-items: center; gap: 15px; }
-        .emoji { font-size: 24px; }
-        .btn { padding: 14px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: #8CB43B; color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; display: block; text-decoration: none; }
+        .emoji { font-size: 24px; margin-right: 15px; }
+        .btn { padding: 14px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: #8CB43B; color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; }
+        .btn-scan { background: #F26522; margin-bottom: 5px; }
+        .btn-manual { background: #444; font-size: 12px; padding: 8px; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px; }
         .day-box { padding: 18px 5px; background: #fff; border: 1px solid #eee; border-radius: 12px; text-align: center; font-weight: 900; cursor: pointer; }
         #course-tag { padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: 800; display: none; }
+        #status-area { display: none; background: #E3F2FD; color: #1565C0; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; font-weight: 800; border: 2px solid #1565C0; }
+        .spinner { width: 20px; height: 20px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 5px; }
+        @keyframes rot { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -23,7 +27,10 @@
     <h1 onclick="renderHome()" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1>
     <div id="course-tag"></div>
 </header>
-<div class="container" id="main-content"></div>
+<div class="container">
+    <div id="status-area"></div>
+    <div id="main-content"></div>
+</div>
 
 <script>
 const COURSES = [
@@ -35,31 +42,62 @@ const COURSES = [
     { id: "marcia", name: "Marcia", color: "#E94E58", bg: "#FFEBEE", em: "🎀" }
 ];
 
-let state = { sc: null, ss: null, sd: null, lessons: JSON.parse(localStorage.getItem("ku_manual") || "{}") };
+let state = { sc: null, ss: null, sd: null, lessons: JSON.parse(localStorage.getItem("ku_l") || "{}"), routines: JSON.parse(localStorage.getItem("ku_r") || "{}") };
+function save() { localStorage.setItem("ku_l", JSON.stringify(state.lessons)); localStorage.setItem("ku_r", JSON.stringify(state.routines)); }
 
-function save() { localStorage.setItem("ku_manual", JSON.stringify(state.lessons)); }
+async function handleScan(event, type, storyKey) {
+    const file = event.target.files[0]; if (!file) return;
+    const status = document.getElementById('status-area'); status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi...';
+    try {
+        const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result.split(',')[1]); rd.readAsDataURL(file); });
+        const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: "Estrai JSON: [{name, duration, description}]", imageB64: b64 })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const parsed = JSON.parse(data.text.match(/\[[\s\S]*\]/)[0]);
+
+        if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; } 
+        else {
+            const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
+            state.lessons[rKey] = [...(state.routines[state.sc.id+'|'+state.ss] || []), ...parsed];
+        }
+        save(); renderHome(); renderStories(state.sc.id);
+        status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
+    } catch (e) { alert("Errore: " + e.message); status.style.display = 'none'; }
+}
+
+function addManual() {
+    const name = prompt("Nome attività:"); if (!name) return;
+    const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
+    if (!state.lessons[rKey]) state.lessons[rKey] = [];
+    state.lessons[rKey].push({ name, duration: "5" });
+    save(); renderLesson(state.sd);
+}
 
 function renderHome() {
-    state.sc = null;
-    document.getElementById('course-tag').style.display = 'none';
+    state.sc = null; document.getElementById('course-tag').style.display = 'none';
     document.getElementById('main-content').innerHTML = COURSES.map(c => `
         <div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')">
-            <div class="course-info">
-                <span class="emoji">${c.em}</span>
-                <b style="font-size:18px">${c.name}</b>
-            </div>
-        </div>
-    `).join('');
+            <span class="emoji">${c.em}</span> <b>${c.name}</b>
+        </div>`).join('');
 }
 
 function renderStories(id) {
     state.sc = COURSES.find(c => c.id === id);
     const tag = document.getElementById('course-tag');
     tag.style.display = 'block'; tag.style.background = state.sc.bg; tag.style.color = state.sc.color; tag.innerText = state.sc.name;
-    
-    let html = `<button class="btn" style="background:#eee; color:#666" onclick="renderHome()">← CORSI</button>`;
+    let html = `<button class="btn" style="background:none; color:#666" onclick="renderHome()">← CORSI</button>`;
     ["Story 1", "Story 2", "Story 3", "Story 4"].forEach(s => {
-        html += `<div class="card" style="border-left-color:${state.sc.color}" onclick="renderDays('${s}')"><b>${s}</b></div>`;
+        const hasR = !!state.routines[state.sc.id + '|' + s];
+        html += `<div class="card" style="border-left-color:${state.sc.color}; justify-content:space-between">
+            <b onclick="renderDays('${s}')" style="flex:1">${s}</b>
+            <label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">
+                📸 ROUTINES <input type="file" hidden onchange="handleScan(event, 'rou', '${s}')">
+            </label>
+        </div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
@@ -67,8 +105,8 @@ function renderStories(id) {
 function renderDays(s) {
     state.ss = s;
     document.getElementById('main-content').innerHTML = `
-        <button class="btn" style="background:#eee; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button>
-        <h2 style="text-align:center; font-size:18px">${state.ss}</h2>
+        <button class="btn" style="background:none; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button>
+        <h2 style="text-align:center">${s}</h2>
         <div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
 }
 
@@ -76,25 +114,13 @@ function renderLesson(d) {
     state.sd = d;
     const activities = state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] || [];
     let html = `
-        <button class="btn" style="background:#eee; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button>
-        <h2 style="text-align:center; font-size:18px">${state.ss} - Giorno ${d}</h2>
-        <button class="btn" style="background:${state.sc.color}" onclick="addActivity()">➕ AGGIUNGI ATTIVITÀ</button>
+        <button class="btn" style="background:none; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button>
+        <label class="btn btn-scan">📸 SCAN LEZIONE ${d} <input type="file" hidden onchange="handleScan(event, 'day')"></label>
+        <button class="btn btn-manual" onclick="addManual()">➕ AGGIUNGI MANUALE</button>
     `;
-    activities.forEach(a => {
-        html += `<div class="card" style="border-left-color:${state.sc.color}; display:block"><b>${a.name}</b></div>`;
-    });
+    activities.forEach(a => { html += `<div class="card" style="border-left-color:${state.sc.color}"><b>${a.name}</b></div>`; });
     document.getElementById('main-content').innerHTML = html;
 }
-
-function addActivity() {
-    const name = prompt("Inserisci il nome dell'attività:");
-    if (!name) return;
-    const key = `${state.sc.id}|${state.ss}|${state.sd}`;
-    if (!state.lessons[key]) state.lessons[key] = [];
-    state.lessons[key].push({ name });
-    save(); renderLesson(state.sd);
-}
-
 renderHome();
 </script>
 </body>
