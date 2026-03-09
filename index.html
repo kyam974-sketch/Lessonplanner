@@ -56,7 +56,7 @@ async function handleScan(event, type, storyKey) {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         const jsonMatch = data.text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("L'AI non ha restituito un formato valido.");
+        if (!jsonMatch) throw new Error("Formato dati non riconosciuto.");
         const parsed = JSON.parse(jsonMatch[0]);
 
         if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; } 
@@ -65,7 +65,7 @@ async function handleScan(event, type, storyKey) {
             state.lessons[rKey] = [...(state.routines[state.sc.id+'|'+state.ss] || []), ...parsed];
         }
         save(); renderLesson(state.sd);
-        status.innerHTML = "✓ Caricato!"; setTimeout(() => status.style.display = 'none', 2000);
+        status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
     } catch (e) { alert("Errore: " + e.message); status.style.display = 'none'; }
 }
 
@@ -78,7 +78,7 @@ function addManual() {
 }
 
 function deleteActivity(index) {
-    if (confirm("Eliminare?")) {
+    if (confirm("Vuoi eliminare questa attività?")) {
         const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
         state.lessons[rKey].splice(index, 1);
         save(); renderLesson(state.sd);
@@ -87,30 +87,48 @@ function deleteActivity(index) {
 
 function renderHome() {
     state.sc = null; document.getElementById('course-tag').style.display = 'none';
-    document.getElementById('main-content').innerHTML = COURSES.map(c => `<div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')"><span class="emoji">${c.em}</span> <b>${c.name}</b></div>`).join('');
+    document.getElementById('main-content').innerHTML = COURSES.map(c => `
+        <div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')">
+            <span class="emoji">${c.em}</span> <b>${c.name}</b>
+        </div>`).join('');
 }
 
 function renderStories(id) {
     state.sc = COURSES.find(c => c.id === id);
-    const tag = document.getElementById('course-tag'); tag.style.display = 'block'; tag.style.background = state.sc.bg; tag.style.color = state.sc.color; tag.innerText = state.sc.name;
+    const tag = document.getElementById('course-tag');
+    tag.style.display = 'block'; tag.style.background = state.sc.bg; tag.style.color = state.sc.color; tag.innerText = state.sc.name;
     let html = `<button class="btn" style="background:none; color:#666" onclick="renderHome()">← CORSI</button>`;
     ["Story 1", "Story 2", "Story 3", "Story 4"].forEach(s => {
         const hasR = !!state.routines[state.sc.id + '|' + s];
-        html += `<div class="card" style="border-left-color:${state.sc.color}; justify-content:space-between"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
+        html += `<div class="card" style="border-left-color:${state.sc.color}; justify-content:space-between">
+            <b onclick="renderDays('${s}')" style="flex:1">${s}</b>
+            <label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">
+                📸 ROUTINES <input type="file" hidden onchange="handleScan(event, 'rou', '${s}')">
+            </label>
+        </div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
 
 function renderDays(s) {
     state.ss = s;
-    document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="text-align:center">${s}</h2><div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
+    document.getElementById('main-content').innerHTML = `
+        <button class="btn" style="background:none; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button>
+        <h2 style="text-align:center">${s}</h2>
+        <div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
 }
 
 function renderLesson(d) {
     state.sd = d;
     const activities = state.lessons[`${state.sc.id}|${state.ss}|${state.sd}`] || [];
-    let html = `<button class="btn" style="background:none; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button><label class="btn btn-scan">📸 SCAN LEZIONE ${d}<input type="file" hidden onchange="handleScan(event, 'day')"></label><button class="btn btn-manual" onclick="addManual()">➕ AGGIUNGI MANUALE</button>`;
-    activities.forEach((a, index) => { html += `<div class="card" style="border-left-color:${state.sc.color}" onclick="deleteActivity(${index})"><b>${a.name}</b></div>`; });
+    let html = `
+        <button class="btn" style="background:none; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button>
+        <label class="btn btn-scan">📸 SCAN LEZIONE ${d} <input type="file" hidden onchange="handleScan(event, 'day')"></label>
+        <button class="btn btn-manual" onclick="addManual()">➕ AGGIUNGI MANUALE</button>
+    `;
+    activities.forEach((a, index) => { 
+        html += `<div class="card" style="border-left-color:${state.sc.color}" onclick="deleteActivity(${index})"><b>${a.name}</b></div>`; 
+    });
     document.getElementById('main-content').innerHTML = html;
 }
 renderHome();
