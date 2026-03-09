@@ -7,16 +7,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root { --cc: #8CB43B; }
-        body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; padding: 0; color: #3C3C3B; -webkit-tap-highlight-color: transparent; }
-        header { padding: 15px; background: #fff; border-bottom: 3px solid #8CB43B; display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; z-index:10; }
+        body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; padding: 0; color: #3C3C3B; }
+        header { padding: 15px; background: #fff; border-bottom: 3px solid var(--cc); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; z-index:10; }
         .container { padding: 15px; max-width: 600px; margin: 0 auto; }
-        .card { background: #fff; border-radius: 15px; padding: 18px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid #8CB43B; cursor: pointer; }
-        .btn { padding: 14px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: #8CB43B; color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; }
-        .btn-rt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 10px; padding: 6px 10px; width: auto; border-radius: 8px; font-weight: 900; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px; }
-        .day-box { padding: 18px 5px; background: #fff; border: 1px solid #eee; border-radius: 12px; text-align: center; font-weight: 900; cursor: pointer; }
-        #status-area { display: none; background: #E3F2FD; color: #1565C0; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; font-weight: 800; border: 2px solid #1565C0; }
-        .spinner { width: 20px; height: 20px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 5px; }
+        .card { background: #fff; border-radius: 15px; padding: 18px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 6px solid var(--cc); cursor: pointer; }
+        .btn { padding: 14px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; text-align: center; }
+        .status-box { display: none; background: #E3F2FD; color: #1565C0; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; font-weight: 800; border: 2px solid #1565C0; }
+        .error-log { display: none; background: #FFEBEE; color: #C62828; padding: 15px; border-radius: 10px; font-size: 11px; margin-top: 10px; white-space: pre-wrap; border: 1px solid #EF9A9A; }
+        .spinner { width: 24px; height: 24px; border: 3px solid rgba(0,0,0,0.1); border-top-color: #F26522; border-radius: 50%; animation: rot .8s linear infinite; margin: 0 auto 5px; }
         @keyframes rot { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -28,12 +26,12 @@
 </header>
 
 <div class="container">
-    <div id="status-area"></div>
+    <div id="status-area" class="status-box"></div>
+    <div id="error-log" class="error-log"></div>
     <div id="main-content"></div>
 </div>
 
 <script>
-// --- DATI ---
 const COURSES = [
     {id:"mousy", name:"Mousy", color:"#8CB43B", bg:"#F0F7E1", em:"🐭"},
     {id:"linda", name:"Linda", color:"#F26522", bg:"#FFF0E6", em:"🐱"},
@@ -43,25 +41,23 @@ const COURSES = [
     {id:"marcia", name:"Marcia", color:"#E94E58", bg:"#FFEBEE", em:"🎀"}
 ];
 
-let state = { 
-    sc: null, ss: null, sd: null, 
-    lessons: JSON.parse(localStorage.getItem("ku_l") || "{}"), 
-    routines: JSON.parse(localStorage.getItem("ku_r") || "{}") 
-};
+let state = { sc: null, ss: null, sd: null, lessons: {}, routines: {} };
 
-function save() {
-    localStorage.setItem("ku_l", JSON.stringify(state.lessons));
-    localStorage.setItem("ku_r", JSON.stringify(state.routines));
+function load() {
+    const d = JSON.parse(localStorage.getItem("ku_vfinal") || '{"l":{},"r":{}}');
+    state.lessons = d.l; state.routines = d.r;
 }
+function save() { localStorage.setItem("ku_vfinal", JSON.stringify({l: state.lessons, r: state.routines})); }
 
-// --- LOGICA DI ANALISI ---
 async function handleScan(event, type, storyKey) {
     const files = event.target.files;
     if (!files.length) return;
     
     const status = document.getElementById('status-area');
+    const errLog = document.getElementById('error-log');
     status.style.display = 'block';
-    status.innerHTML = '<div class="spinner"></div>Analisi in corso...';
+    errLog.style.display = 'none';
+    status.innerHTML = '<div class="spinner"></div>Analisi profonda in corso...';
 
     try {
         const imgs = [];
@@ -75,8 +71,8 @@ async function handleScan(event, type, storyKey) {
         }
 
         const prompt = type === 'rou' 
-            ? "Extract Welcome, Warm-up and Goodbye (A/B) from Teacher Guide. Return ONLY a JSON array: [{type, name, duration, target_language, description}]"
-            : "Extract lesson activities (excluding routines) from Teacher Guide. Return ONLY a JSON array: [{name, duration, target_language, description}]";
+            ? "Extract Kids&Us routines. Return ONLY a JSON array: [{type, name, duration, target_language, description}]"
+            : "Extract Kids&Us lesson activities. Return ONLY a JSON array: [{name, duration, target_language, description}]";
 
         const res = await fetch("/api/generate", {
             method: "POST",
@@ -90,23 +86,22 @@ async function handleScan(event, type, storyKey) {
 
         const data = await res.json();
         
-        // CORREZIONE CRITICA: Gestione sicura della risposta Claude
-        let txt = "";
-        if (data && data.content && data.content[0] && data.content[0].text) {
-            txt = data.content[0].text;
-        } else if (data && data.text) {
-            txt = data.text;
-        } else {
-            throw new Error("Risposta AI vuota o non valida");
+        // --- SUPER ANALIZZATORE DI RISPOSTA ---
+        let rawText = "";
+        if (data.content && data.content[0] && data.content[0].text) rawText = data.content[0].text;
+        else if (data.text) rawText = data.text;
+        else rawText = JSON.stringify(data);
+
+        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            console.error("Raw response:", rawText);
+            throw new Error("Formato dati non riconosciuto. Risposta grezza: " + rawText.substring(0, 100) + "...");
         }
 
-        const jsonMatch = txt.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("L'AI non ha restituito una lista valida.");
         const parsed = JSON.parse(jsonMatch[0]);
 
         if (type === 'rou') {
             state.routines[state.sc.id + '|' + storyKey] = parsed;
-            save(); renderStories(state.sc.id);
         } else {
             const rKey = state.sc.id + '|' + state.ss;
             const rts = state.routines[rKey] || [];
@@ -114,18 +109,21 @@ async function handleScan(event, type, storyKey) {
                 ...rts.filter(r => r.type === 'welcome' || r.type === 'warmup'),
                 ...parsed,
                 ...rts.filter(r => r.type === 'goodbye')
-            ];
-            save(); renderLesson(state.sd);
+            ].map((a, i) => ({...a, id: Date.now() + i}));
         }
+        
+        save();
         status.innerHTML = "✓ Completato!";
+        if (type === 'rou') renderStories(state.sc.id); else renderLesson(state.sd);
         setTimeout(() => status.style.display = 'none', 2000);
+
     } catch (e) {
-        status.innerHTML = "Errore: " + e.message;
-        console.error(e);
+        status.innerHTML = "Errore durante l'analisi.";
+        errLog.style.display = 'block';
+        errLog.innerText = "Dettagli Errore: " + e.message;
     }
 }
 
-// --- RENDER ---
 function renderHome() {
     state.sc = null;
     document.getElementById('course-tag').style.display = 'none';
@@ -148,7 +146,7 @@ function renderStories(courseId) {
         const hasR = !!state.routines[c.id + '|' + s];
         html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center">
             <b onclick="renderDays('${s}')" style="flex:1">${s}</b>
-            <label class="btn-rt" style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}">
+            <label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:6px 10px; border-radius:8px; font-size:10px; font-weight:900; cursor:pointer">
                 ${hasR ? "✓ ROUTINES" : "📸 SET ROUTINES"}
                 <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
             </label>
@@ -161,8 +159,9 @@ function renderDays(storyName) {
     state.ss = storyName;
     const main = document.getElementById('main-content');
     main.innerHTML = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button>
-    <h2 style="font-size:18px">${storyName}</h2>
-    <div class="grid">${Array.from({length:10}, (_,i) => `<div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`;
+    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-top:15px">
+        ${Array.from({length:10}, (_,i) => `<div style="padding:15px 5px; background:#fff; border:1px solid #eee; border-radius:12px; text-align:center; font-weight:900; cursor:pointer" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}
+    </div>`;
 }
 
 function renderLesson(day) {
@@ -175,14 +174,13 @@ function renderLesson(day) {
     data.forEach(a => {
         html += `<div class="card" style="border-left-color:${a.type ? '#ddd' : state.sc.color}">
             <div style="display:flex; justify-content:space-between"><b>${a.name}</b><small>${a.duration}m</small></div>
-            ${a.target_language ? `<div style="font-size:12px; color:${state.sc.color}; font-style:italic; margin-top:5px">${a.target_language}</div>`:''}
             <p style="font-size:11px; color:#666; margin-top:5px">${a.description}</p>
         </div>`;
     });
     main.innerHTML = html;
 }
 
-renderHome();
+load(); renderHome();
 </script>
 </body>
 </html>
