@@ -1,15 +1,15 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'Chiave Google mancante' });
+  if (!apiKey) return res.status(500).json({ error: 'Chiave Google mancante su Vercel' });
 
   try {
     const { prompt, imageB64 } = req.body;
 
-    // Usiamo il nome completo della tabella Vercel 2026
-    const modelName = "google/gemini-3-flash";
+    // Nome purificato per Google AI Studio (senza il prefisso della tabella Vercel)
+    const modelId = "gemini-3-flash";
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -24,30 +24,18 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // Se fallisce, proviamo la versione v1beta automaticamente senza fermarci
     if (data.error) {
-      const retry = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: "image/png", data: imageB64 } }
-            ]
-          }]
-        })
-      });
-      const retryData = await retry.json();
-      if (retryData.error) throw new Error(retryData.error.message);
-      return res.status(200).json({ text: retryData.candidates[0].content.parts[0].text });
+      console.error("Errore dettagliato:", data.error);
+      throw new Error(data.error.message);
     }
 
     if (data.candidates && data.candidates[0]) {
-      res.status(200).json({ text: data.candidates[0].content.parts[0].text });
+      const resultText = data.candidates[0].content.parts[0].text;
+      res.status(200).json({ text: resultText });
     } else {
-      throw new Error("Nessuna risposta dal modello.");
+      throw new Error("Il modello non ha restituito dati. Riprova lo scan.");
     }
+
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
