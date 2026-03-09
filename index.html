@@ -11,39 +11,34 @@
     <style>
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height:100vh}
-        .btn{padding:12px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:800;font-family:'Nunito';display:block;width:100%;transition:0.2s}
+        .btn{padding:12px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:800;font-family:'Nunito';display:block;width:100%;transition:0.2s;text-align:center}
         .card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.05);margin-bottom:12px}
         .routine-tag{font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;text-transform:uppercase;margin-bottom:4px;display:inline-block}
         .spinner{width:24px;height:24px;border:3px solid rgba(0,0,0,0.1);border-top-color:#F26522;border-radius:50%;animation:rot .8s linear infinite;margin:10px auto}
         @keyframes rot{to{transform:rotate(360deg)}}
+        .status-box{padding:15px;border-radius:15px;text-align:center;margin-bottom:15px;font-weight:800;font-size:13px}
     </style>
 </head>
 <body>
     <div id="app"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
 
-        // TUTTI I CORSI DIVISI IN 4 STORIE DA 10 GIORNI
         const CS = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((name, i) => {
             const colors = ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"];
             const bgs = ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"];
             const emojis = ["🐭","🐱","🧸","🦋","🐸","🎀"];
             return {
-                id: name.toLowerCase(),
-                name: name,
-                color: colors[i],
-                bg: bgs[i],
-                em: emojis[i],
-                parts: ["Story 1", "Story 2", "Story 3", "Story 4"],
-                dp: 10
+                id: name.toLowerCase(), name, color: colors[i], bg: bgs[i], em: emojis[i],
+                parts: ["Story 1", "Story 2", "Story 3", "Story 4"], dp: 10
             };
         });
 
         function App() {
             const [state, setState] = useState({
                 view: "home", sc: null, sp: null, sd: null, 
-                lessons: {}, routines: {}, scn: false, ss: ""
+                lessons: {}, routines: {}, scn: false, ss: "", err: false
             });
 
             useEffect(() => {
@@ -57,65 +52,69 @@
                 localStorage.setItem("ku-routines", JSON.stringify(state.routines));
             }, [state.lessons, state.routines]);
 
-            const cleanJson = (txt) => {
-                const clean = txt.replace(/```json\n?|```/g, "").trim();
-                const match = clean.match(/\[[\s\S]*\]/);
-                return match ? JSON.parse(match[0]) : JSON.parse(clean);
+            const callAI = async (imgs, prompt) => {
+                const res = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        model: "claude-3-5-sonnet-20240620",
+                        max_tokens: 4000,
+                        messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
+                    })
+                });
+                if (!res.ok) throw new Error(`Server Error: ${res.status}`);
+                const data = await res.json();
+                const txt = data.content[0].text;
+                const match = txt.match(/\[[\s\S]*\]/);
+                return JSON.parse(match ? match[0] : txt);
             };
 
-            const getImgs = async (files) => {
-                const res = [];
-                for (const f of files) {
-                    const b = await new Promise(r => {
-                        const rd = new FileReader();
-                        rd.onload = () => r(rd.result.split(",")[1]);
-                        rd.readAsDataURL(f);
-                    });
-                    res.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b}});
-                }
-                return res;
-            };
-
-            const handleScan = async (files, type) => {
-                if(!files.length) return;
-                setState(s => ({...s, scn: true, ss: type === 'rou' ? "Estrazione Routine A/B..." : "Analisi Lezione..."}));
+            const processFiles = async (e, mode) => {
+                const files = e.target.files;
+                if (!files.length) return;
+                
+                setState(s => ({...s, scn: true, err: false, ss: mode === 'rou' ? "Analisi Routine..." : "Analisi Lezione..."}));
                 
                 try {
-                    const imgs = await getImgs(files);
-                    const prompt = type === 'rou' 
-                        ? "Analizza routine Kids&Us. Estrai Welcome, Warm-up e Goodbye (Version A e B se presenti). Per ogni routine: type (welcome/warmup/goodbye), name, duration, tracks, target_language, description. JSON array ONLY."
-                        : "Extract Kids&Us lesson activities (NO routines) as JSON array: [{name, duration, tracks, target_language, description}]";
-
-                    const res = await fetch("/api/generate", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({
-                            model: "claude-3-5-sonnet-20240620",
-                            max_tokens: 4000,
-                            messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
-                        })
-                    });
-                    const d = await res.json();
-                    const parsed = cleanJson(d.content[0].text);
-                    
-                    const rKey = `${state.sc.id}|${state.sp}`;
-                    if(type === 'rou') {
-                        setState(s => ({...s, routines: {...s.routines, [rKey]: parsed}, scn: false, ss: ""}));
-                    } else {
-                        const savedRoutines = state.routines[rKey] || [];
-                        const allActs = [
-                            ...savedRoutines.filter(r => r.type === "welcome" || r.type === "warmup"),
-                            ...parsed,
-                            ...savedRoutines.filter(r => r.type === "goodbye")
-                        ].map((a, i) => ({...a, id: "a"+Date.now()+i}));
-                        const lKey = `${state.sc.id}|${state.sp}|${state.sd}`;
-                        setState(s => ({...s, lessons: {...s.lessons, [lKey]: allActs}, scn: false, ss: ""}));
+                    const imgs = [];
+                    for (let f of files) {
+                        const base64 = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result.split(',')[1]);
+                            reader.readAsDataURL(f);
+                        });
+                        imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: base64}});
                     }
-                } catch (e) { setState(s => ({...s, ss: "Errore: " + e.message, scn: false})); }
+
+                    const prompt = mode === 'rou' 
+                        ? "Extract Welcome, Warm-up, Goodbye (A/B) from Teacher Guide. Return JSON array: [{type:'welcome'|'warmup'|'goodbye', name, duration, target_language, description}]"
+                        : "Extract activities (NO routines) from Teacher Guide. Return JSON array: [{name, duration, target_language, description}]";
+
+                    const parsed = await callAI(imgs, prompt);
+                    
+                    if (mode === 'rou') {
+                        const rKey = `${state.sc.id}|${state.sp}`;
+                        setState(s => ({...s, routines: {...s.routines, [rKey]: parsed}, scn: false, ss: "Routine Caricate!"}));
+                    } else {
+                        const rKey = `${state.sc.id}|${state.sp}`;
+                        const savedR = state.routines[rKey] || [];
+                        const all = [
+                            ...savedR.filter(r => r.type === 'welcome' || r.type === 'warmup'),
+                            ...parsed,
+                            ...savedR.filter(r => r.type === 'goodbye')
+                        ].map((a, i) => ({...a, id: Date.now() + i}));
+                        
+                        const lKey = `${state.sc.id}|${state.sp}|${state.sd}`;
+                        setState(s => ({...s, lessons: {...s.lessons, [lKey]: all}, scn: false, ss: "Lezione Pronta!"}));
+                    }
+                } catch (err) {
+                    setState(s => ({...s, scn: false, err: true, ss: "Errore: " + err.message}));
+                }
+                e.target.value = ""; // Reset input
             };
 
             const cc = state.sc?.color || "#8CB43B";
-            const currentLesson = state.lessons[`${state.sc?.id}|${state.sp}|${state.sd}`] || [];
+            const cl = state.lessons[`${state.sc?.id}|${state.sp}|${state.sd}`] || [];
 
             return (
                 <div>
@@ -131,16 +130,17 @@
                             </div>
                         ))}
 
-                        {state.view === "course" && (
+                        {state.view === "course" && state.sc && (
                             <div>
-                                <button onClick={() => setState(s => ({...s, view: "home"}))} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← BACK</button>
+                                <button onClick={() => setState(s => ({...s, view: "home"})} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← BACK</button>
+                                
                                 {state.sc.parts.map(p => (
                                     <div key={p} style={{marginBottom:25}}>
                                         <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
                                             <h3 style={{fontSize:14, fontWeight:900, color:cc}}>{p}</h3>
-                                            <label style={{background:state.routines[`${state.sc.id}|${p}`] ? "#E8F5E9" : "#FFF3E0", padding:"6px 12px", borderRadius:10, fontSize:10, fontWeight:900, cursor:"pointer", border:"1px solid #0001"}}>
-                                                {state.routines[`${state.sc.id}|${p}`] ? "✓ ROUTINES OK" : "📸 SET ROUTINES"}
-                                                <input type="file" multiple hidden onChange={e => {setState(s=>({...s, sp:p})); handleScan(e.target.files, 'rou')}} />
+                                            <label style={{background:state.routines[`${state.sc.id}|${p}`] ? "#E8F5E9" : "#FFF3E0", padding:"8px 12px", borderRadius:12, fontSize:10, fontWeight:900, cursor:"pointer", border:"1px solid #0001"}}>
+                                                {state.routines[`${state.sc.id}|${p}`] ? "✓ ROUTINES OK" : "📸 CARICA ROUTINE"}
+                                                <input type="file" multiple hidden onChange={(e) => { setState(s => ({...s, sp: p})); processFiles(e, 'rou'); }} />
                                             </label>
                                         </div>
                                         <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8}}>
@@ -157,19 +157,24 @@
 
                         {state.view === "lesson" && (
                             <div>
-                                <button onClick={() => setState(s => ({...s, view: "course"}))} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← GIORNI</button>
-                                <h2 style={{fontSize:18, marginBottom:15}}>{state.sp} - Day {state.sd}</h2>
+                                <button onClick={() => setState(s => ({...s, view: "course"})} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← GIORNI</button>
+                                <h2 style={{fontSize:18, marginBottom:15}}>{state.sp} - Giorno {state.sd}</h2>
                                 
-                                <label className="btn" style={{background:cc, color:"#fff", textAlign:"center", marginBottom:20}}>
-                                    📸 SCANSIONA LEZIONE
-                                    <input type="file" multiple hidden onChange={e => handleScan(e.target.files, 'day')} />
+                                <label className="btn" style={{background:cc, color:"#fff", marginBottom:20}}>
+                                    📸 SCANSIONA GIORNO {state.sd}
+                                    <input type="file" multiple hidden onChange={(e) => processFiles(e, 'day')} />
                                 </label>
 
-                                {state.scn && <div style={{textAlign:"center", padding:10}}><div className="spinner"></div><p style={{fontSize:12, fontWeight:800, color:cc}}>{state.ss}</p></div>}
+                                {state.ss && (
+                                    <div className="status-box" style={{background: state.err ? "#FFEBEE" : "#E3F2FD", color: state.err ? "#C62828" : "#1565C0"}}>
+                                        {state.scn && <div className="spinner"></div>}
+                                        {state.ss}
+                                    </div>
+                                )}
 
-                                {currentLesson.map((a, i) => (
+                                {cl.map((a, i) => (
                                     <div key={a.id} className="card" style={{borderLeft:`5px solid ${a.type ? "#bbb" : cc}`}}>
-                                        <div style={{display:"flex", justifyContent:"space-between"}}>
+                                        <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
                                             <span style={{flex:1}}>
                                                 {a.type && <span className="routine-tag" style={{background:cc, color:"#fff"}}>{a.type}</span>}
                                                 <div style={{fontWeight:900, fontSize:14}}>{a.name}</div>
@@ -177,7 +182,7 @@
                                             <span style={{fontSize:11, fontWeight:800, opacity:0.5}}>{a.duration}m</span>
                                         </div>
                                         {a.target_language && <div style={{fontSize:12, color:cc, background:cc+'08', padding:6, borderRadius:8, marginTop:5}}><i>{a.target_language}</i></div>}
-                                        {a.description && <p style={{fontSize:11, color:"#666", marginTop:5, lineHeight:1.4}}>{a.description}</p>}
+                                        {a.description && <p style={{fontSize:11, color:"#666", marginTop:6, lineHeight:1.4}}>{a.description}</p>}
                                     </div>
                                 ))}
                             </div>
