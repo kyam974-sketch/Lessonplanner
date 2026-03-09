@@ -3,188 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K&U Planner</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+    <title>K&U Lesson Planner</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: 900; width: 100%; cursor: pointer; }
-        .spinner { width: 20px; height: 20px; border: 3px solid #eee; border-top: 3px solid #F26522; border-radius: 50%; animation: spin 1s linear infinite; margin: 10px auto; }
+        :root { --cc: #8CB43B; }
+        body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; color: #3C3C3B; -webkit-tap-highlight-color: transparent; }
+        header { padding: 15px; background: #fff; border-bottom: 3px solid var(--cc); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z.index: 100; }
+        .container { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #eee; }
+        .btn { padding: 12px; border-radius: 12px; border: none; font-weight: 900; width: 100%; cursor: pointer; background: var(--cc); color: #fff; margin-bottom: 10px; font-family: 'Nunito'; }
+        .btn-opt { background: #FFF3E0; color: #E65100; border: 1px dashed #FFB74D; font-size: 11px; padding: 5px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .day-box { padding: 15px 5px; background: #fff; border: 1px solid #eee; border-radius: 10px; text-align: center; font-weight: 800; cursor: pointer; }
+        .status { text-align: center; font-size: 12px; font-weight: 800; color: var(--cc); margin: 10px 0; }
+        .spinner { width: 20px; height: 20px; border: 3px solid #eee; border-top: 3px solid #F26522; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+<header>
+    <h1 id="logo" style="margin:0; font-size:18px; font-weight:900; cursor:pointer">K&U PLANNER</h1>
+    <div id="course-tag" style="padding:4px 10px; borderRadius:15px; fontSize:12px; fontWeight:800; display:none"></div>
+</header>
 
-        // Struttura completa 4 Stories x 10 Giorni per tutti
-        const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
-            id: n.toLowerCase(), name: n, 
-            color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
-            bg: ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"][i],
-            em: ["🐭","🐱","🧸","🦋","🐸","🎀"][i],
-            stories: ["Story 1", "Story 2", "Story 3", "Story 4"],
-            days: 10
-        }));
+<div class="container" id="main-content">
+    </div>
 
-        function App() {
-            const [view, setView] = useState('home');
-            const [sc, setSc] = useState(null); // Corso selezionato
-            const [ss, setSs] = useState(null); // Storia selezionata
-            const [sd, setSd] = useState(null); // Giorno selezionato
-            const [lessons, setLessons] = useState({});
-            const [routines, setRoutines] = useState({});
-            const [loading, setLoading] = useState(false);
-            const [status, setStatus] = useState("");
+<script>
+// --- CONFIGURAZIONE ---
+const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
+    id: n.toLowerCase(), name: n, 
+    color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
+    bg: ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"][i],
+    em: ["🐭","🐱","🧸","🦋","🐸","🎀"][i],
+    stories: ["Story 1", "Story 2", "Story 3", "Story 4"],
+    days: 10
+}));
 
-            // Caricamento dati salvati
-            useEffect(() => {
-                const l = localStorage.getItem("ku_l");
-                const r = localStorage.getItem("ku_r");
-                if (l) setLessons(JSON.parse(l));
-                if (r) setRoutines(JSON.parse(r));
-            }, []);
+let state = { sc: null, ss: null, sd: null, lessons: {}, routines: {} };
 
-            // Salvataggio dati
-            useEffect(() => {
-                localStorage.setItem("ku_l", JSON.stringify(lessons));
-                localStorage.setItem("ku_r", JSON.stringify(routines));
-            }, [lessons, routines]);
+// --- LOGICA ---
+function save() {
+    localStorage.setItem("ku_data", JSON.stringify({l: state.lessons, r: state.routines}));
+}
 
-            const handleFile = async (e, type) => {
-                const files = e.target.files;
-                if (!files.length) return;
-                setLoading(true);
-                setStatus("Analisi in corso...");
+function load() {
+    const data = JSON.parse(localStorage.getItem("ku_data") || '{"l":{},"r":{}}');
+    state.lessons = data.l;
+    state.routines = data.r;
+}
 
-                try {
-                    const imgs = [];
-                    for (let f of files) {
-                        const b64 = await new Promise(r => {
-                            const reader = new FileReader();
-                            reader.onload = () => r(reader.result.split(',')[1]);
-                            reader.readAsDataURL(f);
-                        });
-                        imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
-                    }
+async function apiCall(files, prompt) {
+    const imgs = [];
+    for (let f of files) {
+        const b64 = await new Promise(r => {
+            const reader = new FileReader();
+            reader.onload = () => r(reader.result.split(',')[1]);
+            reader.readAsDataURL(f);
+        });
+        imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
+    }
 
-                    const prompt = type === 'rou' 
-                        ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
-                        : "Estrai attività lezione (NO routine) come JSON array: [{name, duration, target_language, description}]";
+    const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            model: "claude-3-5-sonnet-20240620",
+            max_tokens: 4000,
+            messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
+        })
+    });
+    const data = await res.json();
+    return JSON.parse(data.content[0].text.match(/\[[\s\S]*\]/)[0]);
+}
 
-                    const res = await fetch("/api/generate", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({
-                            model: "claude-3-5-sonnet-20240620",
-                            max_tokens: 4000,
-                            messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
-                        })
-                    });
+// --- RENDER ---
+function renderHome() {
+    state.sc = null; state.ss = null; state.sd = null;
+    document.getElementById('course-tag').style.display = 'none';
+    const main = document.getElementById('main-content');
+    main.innerHTML = COURSES.map(c => `
+        <div class="card" style="border-left:6px solid ${c.color}; cursor:pointer" onclick="renderStories('${c.id}')">
+            <span style="font-size:24px">${c.em}</span> <b style="margin-left:10px">${c.name}</b>
+        </div>
+    `).join('');
+}
 
-                    const data = await res.json();
-                    const txt = data.content[0].text;
-                    const clean = JSON.parse(txt.match(/\[[\s\S]*\]/)[0]);
+function renderStories(courseId) {
+    const c = COURSES.find(x => x.id === courseId);
+    state.sc = c;
+    document.documentElement.style.setProperty('--cc', c.color);
+    const tag = document.getElementById('course-tag');
+    tag.style.display = 'block'; tag.style.background = c.bg; tag.style.color = c.color; tag.innerText = c.name;
 
-                    if (type === 'rou') {
-                        setRoutines(prev => ({...prev, [`${sc.id}|${ss}`]: clean}));
-                        setStatus("Routine salvate!");
-                    } else {
-                        const rKey = `${sc.id}|${ss}`;
-                        const savedR = routines[rKey] || [];
-                        const fullLesson = [
-                            ...savedR.filter(r => r.type === 'welcome' || r.type === 'warmup'),
-                            ...clean,
-                            ...savedR.filter(r => r.type === 'goodbye')
-                        ];
-                        setLessons(prev => ({...prev, [`${sc.id}|${ss}|${sd}`]: fullLesson}));
-                        setStatus("Lezione caricata!");
-                    }
-                } catch (err) {
-                    setStatus("Errore: " + err.message);
-                }
-                setLoading(false);
-            };
+    const main = document.getElementById('main-content');
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); margin-bottom:15px; width:auto" onclick="renderHome()">← CORSI</button>` + 
+    c.stories.map(s => `
+        <div class="card" style="display:flex; justify-content:space-between; align-items:center">
+            <b onclick="renderDays('${s}')" style="flex:1; cursor:pointer">${s}</b>
+            <label class="btn-opt" style="background:${state.routines[c.id+'|'+s] ? '#E8F5E9':'#FFF3E0'}">
+                ${state.routines[c.id+'|'+s] ? "✓ ROUTINES" : "📸 SET ROUTINES"}
+                <input type="file" multiple hidden onchange="handleScan(event, 'rou', '${s}')">
+            </label>
+        </div>
+    `).join('');
+}
 
-            const cc = sc?.color || "#8CB43B";
-            const currentActivities = lessons[`${sc?.id}|${ss}|${sd}`] || [];
+function renderDays(storyName) {
+    state.ss = storyName;
+    const main = document.getElementById('main-content');
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto" onclick="renderStories('${state.sc.id}')">← STORIE</button>
+    <h2 style="font-size:18px">${storyName}</h2>
+    <div class="grid">
+        ${Array.from({length:10}, (_,i) => `
+            <div class="day-box" onclick="renderLesson(${i+1})">${i+1}</div>
+        `).join('')}
+    </div>`;
+}
 
-            return (
-                <div style={{minHeight: '100vh'}}>
-                    <header style={{padding: '15px', background: '#fff', borderBottom: `3px solid ${cc}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10}}>
-                        <h1 onClick={() => setView('home')} style={{margin: 0, fontSize: '18px', fontWeight: 900}}>K&U PLANNER</h1>
-                        {sc && <div style={{background: sc.bg, color: cc, padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 800}}>{sc.name}</div>}
-                    </header>
+async function handleScan(e, type, storyOrDay) {
+    const files = e.target.files;
+    if (!files.length) return;
+    
+    const statusDiv = document.createElement('div');
+    statusDiv.innerHTML = '<div class="spinner"></div><div class="status">Analisi in corso...</div>';
+    document.getElementById('main-content').prepend(statusDiv);
 
-                    <main style={{padding: '15px', maxWidth: '600px', margin: '0 auto'}}>
-                        {view === 'home' && COURSES.map(c => (
-                            <div key={c.id} onClick={() => { setSc(c); setView('stories'); }} className="card" style={{borderLeft: `6px solid ${c.color}`, cursor: 'pointer'}}>
-                                <span style={{fontSize: '24px'}}>{c.em}</span> <b style={{marginLeft: '10px'}}>{c.name}</b>
-                            </div>
-                        ))}
-
-                        {view === 'stories' && sc && (
-                            <div>
-                                <button onClick={() => setView('home')} style={{background: 'none', border: 'none', color: cc, fontWeight: 800, marginBottom: '15px'}}>← CORSI</button>
-                                {sc.stories.map(s => (
-                                    <div key={s} className="card" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                        <b onClick={() => { setSs(s); setView('days'); }} style={{flex: 1, cursor: 'pointer'}}>{s}</b>
-                                        <label style={{background: routines[`${sc.id}|${s}`] ? '#E8F5E9' : '#FFF3E0', padding: '6px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: 900, cursor: 'pointer'}}>
-                                            {routines[`${sc.id}|${s}`] ? "✓ ROUTINES" : "📸 SET ROUTINES"}
-                                            <input type="file" multiple hidden onChange={(e) => { setSs(s); handleFile(e, 'rou'); }} />
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {view === 'days' && (
-                            <div>
-                                <button onClick={() => setView('stories')} style={{background: 'none', border: 'none', color: cc, fontWeight: 800, marginBottom: '15px'}}>← STORIE</button>
-                                <div style={{display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px'}}>
-                                    {[...Array(sc.days)].map((_, i) => (
-                                        <div key={i} onClick={() => { setSd(i+1); setView('lesson'); }} style={{padding: '15px 5px', background: '#fff', border: '1px solid #eee', borderRadius: '10px', textAlign: 'center', fontWeight: 800}}>
-                                            {i + 1}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {view === 'lesson' && (
-                            <div>
-                                <button onClick={() => setView('days')} style={{background: 'none', border: 'none', color: cc, fontWeight: 800, marginBottom: '15px'}}>← GIORNI</button>
-                                <h2 style={{fontSize: '18px'}}>{ss} - Giorno {sd}</h2>
-                                
-                                <label className="btn" style={{background: cc, color: '#fff', textAlign: 'center', display: 'block'}}>
-                                    📸 SCANSIONA TG (GIORNO {sd})
-                                    <input type="file" multiple hidden onChange={(e) => handleFile(e, 'day')} />
-                                </label>
-
-                                {loading && <div className="spinner"></div>}
-                                {status && <div style={{textAlign: 'center', fontSize: '12px', margin: '10px 0', color: cc, fontWeight: 800}}>{status}</div>}
-
-                                {currentActivities.map((a, i) => (
-                                    <div key={i} className="card" style={{borderLeft: `5px solid ${a.type ? '#ddd' : cc}`}}>
-                                        <div style={{fontWeight: 900, fontSize: '14px'}}>{a.name} <span style={{float: 'right', fontSize: '11px', opacity: 0.5}}>{a.duration}m</span></div>
-                                        {a.target_language && <div style={{fontSize: '12px', color: cc, marginTop: '5px', fontStyle: 'italic'}}>{a.target_language}</div>}
-                                        <p style={{fontSize: '11px', color: '#666', marginTop: '5px'}}>{a.description}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </main>
-                </div>
-            );
+    try {
+        const prompt = type === 'rou' 
+            ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
+            : "Estrai attività lezione (NO routine) come JSON array: [{name, duration, target_language, description}]";
+        
+        const data = await apiCall(files, prompt);
+        
+        if (type === 'rou') {
+            state.routines[state.sc.id+'|'+storyOrDay] = data;
+            save(); renderStories(state.sc.id);
+        } else {
+            const rKey = state.sc.id+'|'+state.ss;
+            const savedR = state.routines[rKey] || [];
+            state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] = [
+                ...savedR.filter(r => r.type === 'welcome' || r.type === 'warmup'),
+                ...data,
+                ...savedR.filter(r => r.type === 'goodbye')
+            ];
+            save(); renderLesson(state.sd);
         }
+    } catch (err) {
+        alert("Errore: " + err.message);
+        renderStories(state.sc.id);
+    }
+}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+function renderLesson(day) {
+    state.sd = day;
+    const main = document.getElementById('main-content');
+    const lessonData = state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] || [];
+    
+    main.innerHTML = `<button class="btn" style="background:none; color:var(--cc); width:auto" onclick="renderDays('${state.ss}')">← GIORNI</button>
+    <h2 style="font-size:18px">${state.ss} - Giorno ${day}</h2>
+    <label class="btn">
+        📸 SCANSIONA LEZIONE
+        <input type="file" multiple hidden onchange="handleScan(event, 'day')">
+    </label>
+    ${lessonData.map(a => `
+        <div class="card" style="border-left:5px solid ${a.type ? '#ddd' : 'var(--cc)'}">
+            <div style="font-weight:900; font-size:14px">${a.name} <span style="float:right; opacity:0.5">${a.duration}m</span></div>
+            ${a.target_language ? `<div style="font-size:12px; color:var(--cc); margin-top:5px; font-style:italic">${a.target_language}</div>`:''}
+            <p style="font-size:11px; color:#666; margin-top:5px">${a.description}</p>
+        </div>
+    `).join('')}`;
+}
+
+// --- INIT ---
+document.getElementById('logo').onclick = renderHome;
+load();
+renderHome();
+</script>
 </body>
 </html>
