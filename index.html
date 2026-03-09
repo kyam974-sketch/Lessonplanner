@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>K&U Planner</title>
+    <title>K&U Planner Gemini</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; padding: 0; color: #3C3C3B; }
@@ -25,31 +25,22 @@ let state = { sc: null, ss: null, sd: null, lessons: JSON.parse(localStorage.get
 function save() { localStorage.setItem("ku_l", JSON.stringify(state.lessons)); localStorage.setItem("ku_r", JSON.stringify(state.routines)); }
 
 async function handleScan(event, type, storyKey) {
-    const files = event.target.files; if (!files.length) return;
-    const status = document.getElementById('status-area'); status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi...';
+    const file = event.target.files[0]; if (!file) return;
+    const status = document.getElementById('status-area'); status.style.display = 'block'; status.innerHTML = '<div class="spinner"></div>Analisi Gemini...';
     try {
-        const imgs = [];
-        for (let f of files) {
-            const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result.split(',')[1]); rd.readAsDataURL(f); });
-            imgs.push({type: "image", source: {type: "base64", media_type: "image/png", data: b64}});
-        }
+        const b64 = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result.split(',')[1]); rd.readAsDataURL(file); });
+        const prompt = "Analizza questa pagina di Teacher Guide Kids&Us. Estrai le attività in formato JSON: [{name, duration, target_language, description}]. Restituisci SOLO il codice JSON.";
         
         const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                model: "claude-2.1", // MODELLO LEGACY: MASSIMA COMPATIBILITÀ
-                max_tokens: 4000,
-                messages: [{ role: "user", content: [...imgs, { type: "text", text: "Estrai le attività della Teacher Guide in formato JSON: [{name, duration, target_language, description}]" }] }]
-            })
+            body: JSON.stringify({ prompt, imageB64: b64 })
         });
 
         const data = await res.json();
-        if (data.error) { alert("ERRORE: " + data.error.message); throw new Error(data.error.message); }
+        if (data.error) throw new Error(data.error);
 
-        const txt = data.content && data.content[0] ? data.content[0].text : "";
-        const jsonMatch = txt.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error("Dati non trovati.");
+        const jsonMatch = data.text.match(/\[[\s\S]*\]/);
         const parsed = JSON.parse(jsonMatch[0]);
 
         if (type === 'rou') { state.routines[state.sc.id+'|'+storyKey] = parsed; save(); renderStories(state.sc.id); } 
@@ -58,42 +49,29 @@ async function handleScan(event, type, storyKey) {
             state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] = [...rts, ...parsed];
             save(); renderLesson(state.sd);
         }
-        status.innerHTML = "✓ Fatto!"; setTimeout(() => status.style.display = 'none', 2000);
-    } catch (e) { alert("DEBUG: " + e.message); status.style.display = 'none'; }
-}
-
-function addManual() {
-    const name = prompt("Nome attività:");
-    if (!name) return;
-    const rKey = state.sc.id+'|'+state.ss+'|'+state.sd;
-    if (!state.lessons[rKey]) state.lessons[rKey] = [];
-    state.lessons[rKey].push({ name, duration: "5", description: "" });
-    save(); renderLesson(state.sd);
+        status.innerHTML = "✓ Completato!"; setTimeout(() => status.style.display = 'none', 2000);
+    } catch (e) { alert("Errore: " + e.message); status.style.display = 'none'; }
 }
 
 function renderHome() {
     state.sc = null; document.getElementById('course-tag').style.display = 'none';
-    document.getElementById('main-content').innerHTML = COURSES.map(c => `<div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')"><span style="font-size:24px">${c.em}</span> <b style="margin-left:10px">${c.name}</b></div>`).join('');
+    document.getElementById('main-content').innerHTML = COURSES.map(c => `<div class="card" style="border-left-color:${c.color}" onclick="renderStories('${c.id}')"><b>${c.name}</b></div>`).join('');
 }
 function renderStories(courseId) {
     const c = COURSES.find(x => x.id === courseId); state.sc = c;
     const tag = document.getElementById('course-tag'); tag.style.display = 'block'; tag.style.background = c.bg; tag.style.color = c.color; tag.innerText = c.name;
-    let html = `<button class="btn" style="background:none; color:${c.color}; width:auto; padding:0; margin-bottom:15px" onclick="renderHome()">← CORSI</button>`;
+    let html = `<button class="btn" style="background:#eee; color:#666" onclick="renderHome()">← CORSI</button>`;
     c.parts.forEach(s => {
         const hasR = !!state.routines[c.id + '|' + s];
         html += `<div class="card" style="border-left-color:${c.color}; display:flex; justify-content:space-between; align-items:center"><b onclick="renderDays('${s}')" style="flex:1">${s}</b><label style="background:${hasR ? '#E8F5E9' : '#FFF3E0'}; padding:8px; border-radius:8px; font-size:10px; font-weight:900">📸 ROUTINES<input type="file" hidden onchange="handleScan(event, 'rou', '${s}')"></label></div>`;
     });
     document.getElementById('main-content').innerHTML = html;
 }
-function renderDays(sn) { state.ss = sn; document.getElementById('main-content').innerHTML = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderStories('${state.sc.id}')">← STORIE</button><h2 style="font-size:18px">${sn}</h2><div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px">${Array.from({length:10}, (_,i) => `<div style="padding:15px; background:#fff; border:1px solid #eee; border-radius:10px; text-align:center; font-weight:900" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`; }
+function renderDays(sn) { state.ss = sn; document.getElementById('main-content').innerHTML = `<button class="btn" style="background:#eee; color:#666" onclick="renderStories('${state.sc.id}')">← STORIE</button><div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px">${Array.from({length:10}, (_,i) => `<div style="padding:15px; background:#fff; border:1px solid #eee; border-radius:10px; text-align:center; font-weight:900" onclick="renderLesson(${i+1})">${i+1}</div>`).join('')}</div>`; }
 function renderLesson(d) {
     state.sd = d; const data = state.lessons[state.sc.id+'|'+state.ss+'|'+state.sd] || [];
-    let html = `<button class="btn" style="background:none; color:${state.sc.color}; width:auto; padding:0" onclick="renderDays('${state.ss}')">← GIORNI</button>
-    <div style="display:flex; gap:10px; margin-bottom:15px">
-        <label class="btn" style="background:${state.sc.color}; flex:1">📸 SCAN LEZIONE<input type="file" hidden onchange="handleScan(event, 'day')"></label>
-        <button class="btn" style="background:#444; width:auto" onclick="addManual()">➕ MANUALE</button>
-    </div>`;
-    data.forEach(a => { html += `<div class="card" style="border-left-color:${state.sc.color}"><b>${a.name}</b><small style="float:right">${a.duration}m</small></div>`; });
+    let html = `<button class="btn" style="background:#eee; color:#666" onclick="renderDays('${state.ss}')">← GIORNI</button><label class="btn" style="background:${state.sc.color}">📸 SCAN LEZIONE<input type="file" hidden onchange="handleScan(event, 'day')"></label>`;
+    data.forEach(a => { html += `<div class="card" style="border-left-color:${state.sc.color}"><b>${a.name}</b></div>`; });
     document.getElementById('main-content').innerHTML = html;
 }
 renderHome();
