@@ -2,187 +2,178 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Kids&Us Lesson Planner</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>K&U Planner</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Nunito',sans-serif;background:#FAFAF7;color:#3C3C3B;min-height:100vh}
-        .btn{padding:12px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:800;font-family:'Nunito';display:block;width:100%;transition:0.2s;text-align:center}
-        .card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.05);margin-bottom:12px}
-        .routine-tag{font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;text-transform:uppercase;margin-bottom:4px;display:inline-block}
-        .spinner{width:24px;height:24px;border:3px solid rgba(0,0,0,0.1);border-top-color:#F26522;border-radius:50%;animation:rot .8s linear infinite;margin:10px auto}
-        @keyframes rot{to{transform:rotate(360deg)}}
-        .status-box{padding:15px;border-radius:15px;text-align:center;margin-bottom:15px;font-weight:800;font-size:13px}
+        body { font-family: 'Nunito', sans-serif; background: #FAFAF7; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        .card { background: #fff; border-radius: 15px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: 900; width: 100%; cursor: pointer; }
+        .spinner { width: 20px; height: 20px; border: 3px solid #eee; border-top: 3px solid #F26522; border-radius: 50%; animation: spin 1s linear infinite; margin: 10px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div id="app"></div>
+    <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
-        const CS = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((name, i) => {
-            const colors = ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"];
-            const bgs = ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"];
-            const emojis = ["🐭","🐱","🧸","🦋","🐸","🎀"];
-            return {
-                id: name.toLowerCase(), name, color: colors[i], bg: bgs[i], em: emojis[i],
-                parts: ["Story 1", "Story 2", "Story 3", "Story 4"], dp: 10
-            };
-        });
+        // Struttura completa 4 Stories x 10 Giorni per tutti
+        const COURSES = ["Mousy","Linda","Sam","Emma","Oliver","Marcia"].map((n, i) => ({
+            id: n.toLowerCase(), name: n, 
+            color: ["#8CB43B","#F26522","#00B3B0","#E878A0","#00B3B0","#E94E58"][i],
+            bg: ["#F0F7E1","#FFF0E6","#E0F7F7","#FFF0F5","#E0F7F7","#FFEBEE"][i],
+            em: ["🐭","🐱","🧸","🦋","🐸","🎀"][i],
+            stories: ["Story 1", "Story 2", "Story 3", "Story 4"],
+            days: 10
+        }));
 
         function App() {
-            const [state, setState] = useState({
-                view: "home", sc: null, sp: null, sd: null, 
-                lessons: {}, routines: {}, scn: false, ss: "", err: false
-            });
+            const [view, setView] = useState('home');
+            const [sc, setSc] = useState(null); // Corso selezionato
+            const [ss, setSs] = useState(null); // Storia selezionata
+            const [sd, setSd] = useState(null); // Giorno selezionato
+            const [lessons, setLessons] = useState({});
+            const [routines, setRoutines] = useState({});
+            const [loading, setLoading] = useState(false);
+            const [status, setStatus] = useState("");
 
+            // Caricamento dati salvati
             useEffect(() => {
-                const l = localStorage.getItem("ku-lessons");
-                const r = localStorage.getItem("ku-routines");
-                if (l || r) setState(s => ({...s, lessons: JSON.parse(l || "{}"), routines: JSON.parse(r || "{}")}));
+                const l = localStorage.getItem("ku_l");
+                const r = localStorage.getItem("ku_r");
+                if (l) setLessons(JSON.parse(l));
+                if (r) setRoutines(JSON.parse(r));
             }, []);
 
+            // Salvataggio dati
             useEffect(() => {
-                localStorage.setItem("ku-lessons", JSON.stringify(state.lessons));
-                localStorage.setItem("ku-routines", JSON.stringify(state.routines));
-            }, [state.lessons, state.routines]);
+                localStorage.setItem("ku_l", JSON.stringify(lessons));
+                localStorage.setItem("ku_r", JSON.stringify(routines));
+            }, [lessons, routines]);
 
-            const callAI = async (imgs, prompt) => {
-                const res = await fetch("/api/generate", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({
-                        model: "claude-3-5-sonnet-20240620",
-                        max_tokens: 4000,
-                        messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
-                    })
-                });
-                if (!res.ok) throw new Error(`Server Error: ${res.status}`);
-                const data = await res.json();
-                const txt = data.content[0].text;
-                const match = txt.match(/\[[\s\S]*\]/);
-                return JSON.parse(match ? match[0] : txt);
-            };
-
-            const processFiles = async (e, mode) => {
+            const handleFile = async (e, type) => {
                 const files = e.target.files;
                 if (!files.length) return;
-                
-                setState(s => ({...s, scn: true, err: false, ss: mode === 'rou' ? "Analisi Routine..." : "Analisi Lezione..."}));
-                
+                setLoading(true);
+                setStatus("Analisi in corso...");
+
                 try {
                     const imgs = [];
                     for (let f of files) {
-                        const base64 = await new Promise((resolve) => {
+                        const b64 = await new Promise(r => {
                             const reader = new FileReader();
-                            reader.onload = () => resolve(reader.result.split(',')[1]);
+                            reader.onload = () => r(reader.result.split(',')[1]);
                             reader.readAsDataURL(f);
                         });
-                        imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: base64}});
+                        imgs.push({type: "image", source: {type: "base64", media_type: f.type || "image/jpeg", data: b64}});
                     }
 
-                    const prompt = mode === 'rou' 
-                        ? "Extract Welcome, Warm-up, Goodbye (A/B) from Teacher Guide. Return JSON array: [{type:'welcome'|'warmup'|'goodbye', name, duration, target_language, description}]"
-                        : "Extract activities (NO routines) from Teacher Guide. Return JSON array: [{name, duration, target_language, description}]";
+                    const prompt = type === 'rou' 
+                        ? "Estrai Welcome, Warm-up e Goodbye (A/B) come JSON array: [{type, name, duration, target_language, description}]"
+                        : "Estrai attività lezione (NO routine) come JSON array: [{name, duration, target_language, description}]";
 
-                    const parsed = await callAI(imgs, prompt);
-                    
-                    if (mode === 'rou') {
-                        const rKey = `${state.sc.id}|${state.sp}`;
-                        setState(s => ({...s, routines: {...s.routines, [rKey]: parsed}, scn: false, ss: "Routine Caricate!"}));
+                    const res = await fetch("/api/generate", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({
+                            model: "claude-3-5-sonnet-20240620",
+                            max_tokens: 4000,
+                            messages: [{role: "user", content: [...imgs, {type: "text", text: prompt}]}]
+                        })
+                    });
+
+                    const data = await res.json();
+                    const txt = data.content[0].text;
+                    const clean = JSON.parse(txt.match(/\[[\s\S]*\]/)[0]);
+
+                    if (type === 'rou') {
+                        setRoutines(prev => ({...prev, [`${sc.id}|${ss}`]: clean}));
+                        setStatus("Routine salvate!");
                     } else {
-                        const rKey = `${state.sc.id}|${state.sp}`;
-                        const savedR = state.routines[rKey] || [];
-                        const all = [
+                        const rKey = `${sc.id}|${ss}`;
+                        const savedR = routines[rKey] || [];
+                        const fullLesson = [
                             ...savedR.filter(r => r.type === 'welcome' || r.type === 'warmup'),
-                            ...parsed,
+                            ...clean,
                             ...savedR.filter(r => r.type === 'goodbye')
-                        ].map((a, i) => ({...a, id: Date.now() + i}));
-                        
-                        const lKey = `${state.sc.id}|${state.sp}|${state.sd}`;
-                        setState(s => ({...s, lessons: {...s.lessons, [lKey]: all}, scn: false, ss: "Lezione Pronta!"}));
+                        ];
+                        setLessons(prev => ({...prev, [`${sc.id}|${ss}|${sd}`]: fullLesson}));
+                        setStatus("Lezione caricata!");
                     }
                 } catch (err) {
-                    setState(s => ({...s, scn: false, err: true, ss: "Errore: " + err.message}));
+                    setStatus("Errore: " + err.message);
                 }
-                e.target.value = ""; // Reset input
+                setLoading(false);
             };
 
-            const cc = state.sc?.color || "#8CB43B";
-            const cl = state.lessons[`${state.sc?.id}|${state.sp}|${state.sd}`] || [];
+            const cc = sc?.color || "#8CB43B";
+            const currentActivities = lessons[`${sc?.id}|${ss}|${sd}`] || [];
 
             return (
-                <div>
-                    <header style={{padding:15, background:"#fff", borderBottom:`3px solid ${cc}`, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:100}}>
-                        <h1 onClick={() => setState(s => ({...s, view: "home", sc: null}))} style={{fontSize:16, fontWeight:900, cursor:"pointer"}}>K&U PLANNER</h1>
-                        {state.sc && <div style={{background:state.sc.bg, color:cc, padding:"4px 10px", borderRadius:15, fontSize:11, fontWeight:800}}>{state.sc.name}</div>}
+                <div style={{minHeight: '100vh'}}>
+                    <header style={{padding: '15px', background: '#fff', borderBottom: `3px solid ${cc}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10}}>
+                        <h1 onClick={() => setView('home')} style={{margin: 0, fontSize: '18px', fontWeight: 900}}>K&U PLANNER</h1>
+                        {sc && <div style={{background: sc.bg, color: cc, padding: '4px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 800}}>{sc.name}</div>}
                     </header>
 
-                    <main style={{maxWidth:800, margin:"0 auto", padding:15}}>
-                        {state.view === "home" && CS.map(c => (
-                            <div key={c.id} onClick={() => setState(s => ({...s, sc: c, view: "course"}))} style={{background:"#fff", padding:20, borderRadius:15, borderLeft:`6px solid ${c.color}`, marginBottom:10, cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.05)"}}>
-                                <span style={{fontSize:24}}>{c.em}</span> <b style={{marginLeft:10}}>{c.name}</b>
+                    <main style={{padding: '15px', maxWidth: '600px', margin: '0 auto'}}>
+                        {view === 'home' && COURSES.map(c => (
+                            <div key={c.id} onClick={() => { setSc(c); setView('stories'); }} className="card" style={{borderLeft: `6px solid ${c.color}`, cursor: 'pointer'}}>
+                                <span style={{fontSize: '24px'}}>{c.em}</span> <b style={{marginLeft: '10px'}}>{c.name}</b>
                             </div>
                         ))}
 
-                        {state.view === "course" && state.sc && (
+                        {view === 'stories' && sc && (
                             <div>
-                                <button onClick={() => setState(s => ({...s, view: "home"})} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← BACK</button>
-                                
-                                {state.sc.parts.map(p => (
-                                    <div key={p} style={{marginBottom:25}}>
-                                        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
-                                            <h3 style={{fontSize:14, fontWeight:900, color:cc}}>{p}</h3>
-                                            <label style={{background:state.routines[`${state.sc.id}|${p}`] ? "#E8F5E9" : "#FFF3E0", padding:"8px 12px", borderRadius:12, fontSize:10, fontWeight:900, cursor:"pointer", border:"1px solid #0001"}}>
-                                                {state.routines[`${state.sc.id}|${p}`] ? "✓ ROUTINES OK" : "📸 CARICA ROUTINE"}
-                                                <input type="file" multiple hidden onChange={(e) => { setState(s => ({...s, sp: p})); processFiles(e, 'rou'); }} />
-                                            </label>
-                                        </div>
-                                        <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8}}>
-                                            {[...Array(state.sc.dp)].map((_, i) => (
-                                                <div key={i} onClick={() => setState(s => ({...s, sp: p, sd: i+1, view: "lesson"}))} style={{padding:15, background:"#fff", border:"1px solid #eee", borderRadius:12, textAlign:"center", cursor:"pointer", fontWeight:800, fontSize:13}}>
-                                                    {i+1}
-                                                </div>
-                                            ))}
-                                        </div>
+                                <button onClick={() => setView('home')} style={{background: 'none', border: 'none', color: cc, fontWeight: 800, marginBottom: '15px'}}>← CORSI</button>
+                                {sc.stories.map(s => (
+                                    <div key={s} className="card" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                        <b onClick={() => { setSs(s); setView('days'); }} style={{flex: 1, cursor: 'pointer'}}>{s}</b>
+                                        <label style={{background: routines[`${sc.id}|${s}`] ? '#E8F5E9' : '#FFF3E0', padding: '6px 10px', borderRadius: '10px', fontSize: '10px', fontWeight: 900, cursor: 'pointer'}}>
+                                            {routines[`${sc.id}|${s}`] ? "✓ ROUTINES" : "📸 SET ROUTINES"}
+                                            <input type="file" multiple hidden onChange={(e) => { setSs(s); handleFile(e, 'rou'); }} />
+                                        </label>
                                     </div>
                                 ))}
                             </div>
                         )}
 
-                        {state.view === "lesson" && (
+                        {view === 'days' && (
                             <div>
-                                <button onClick={() => setState(s => ({...s, view: "course"})} style={{background:"none", border:"none", color:cc, fontWeight:800, marginBottom:15}}>← GIORNI</button>
-                                <h2 style={{fontSize:18, marginBottom:15}}>{state.sp} - Giorno {state.sd}</h2>
+                                <button onClick={() => setView('stories')} style={{background: 'none', border: 'none', color: cc, fontWeight: 800, marginBottom: '15px'}}>← STORIE</button>
+                                <div style={{display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px'}}>
+                                    {[...Array(sc.days)].map((_, i) => (
+                                        <div key={i} onClick={() => { setSd(i+1); setView('lesson'); }} style={{padding: '15px 5px', background: '#fff', border: '1px solid #eee', borderRadius: '10px', textAlign: 'center', fontWeight: 800}}>
+                                            {i + 1}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'lesson' && (
+                            <div>
+                                <button onClick={() => setView('days')} style={{background: 'none', border: 'none', color: cc, fontWeight: 800, marginBottom: '15px'}}>← GIORNI</button>
+                                <h2 style={{fontSize: '18px'}}>{ss} - Giorno {sd}</h2>
                                 
-                                <label className="btn" style={{background:cc, color:"#fff", marginBottom:20}}>
-                                    📸 SCANSIONA GIORNO {state.sd}
-                                    <input type="file" multiple hidden onChange={(e) => processFiles(e, 'day')} />
+                                <label className="btn" style={{background: cc, color: '#fff', textAlign: 'center', display: 'block'}}>
+                                    📸 SCANSIONA TG (GIORNO {sd})
+                                    <input type="file" multiple hidden onChange={(e) => handleFile(e, 'day')} />
                                 </label>
 
-                                {state.ss && (
-                                    <div className="status-box" style={{background: state.err ? "#FFEBEE" : "#E3F2FD", color: state.err ? "#C62828" : "#1565C0"}}>
-                                        {state.scn && <div className="spinner"></div>}
-                                        {state.ss}
-                                    </div>
-                                )}
+                                {loading && <div className="spinner"></div>}
+                                {status && <div style={{textAlign: 'center', fontSize: '12px', margin: '10px 0', color: cc, fontWeight: 800}}>{status}</div>}
 
-                                {cl.map((a, i) => (
-                                    <div key={a.id} className="card" style={{borderLeft:`5px solid ${a.type ? "#bbb" : cc}`}}>
-                                        <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
-                                            <span style={{flex:1}}>
-                                                {a.type && <span className="routine-tag" style={{background:cc, color:"#fff"}}>{a.type}</span>}
-                                                <div style={{fontWeight:900, fontSize:14}}>{a.name}</div>
-                                            </span>
-                                            <span style={{fontSize:11, fontWeight:800, opacity:0.5}}>{a.duration}m</span>
-                                        </div>
-                                        {a.target_language && <div style={{fontSize:12, color:cc, background:cc+'08', padding:6, borderRadius:8, marginTop:5}}><i>{a.target_language}</i></div>}
-                                        {a.description && <p style={{fontSize:11, color:"#666", marginTop:6, lineHeight:1.4}}>{a.description}</p>}
+                                {currentActivities.map((a, i) => (
+                                    <div key={i} className="card" style={{borderLeft: `5px solid ${a.type ? '#ddd' : cc}`}}>
+                                        <div style={{fontWeight: 900, fontSize: '14px'}}>{a.name} <span style={{float: 'right', fontSize: '11px', opacity: 0.5}}>{a.duration}m</span></div>
+                                        {a.target_language && <div style={{fontSize: '12px', color: cc, marginTop: '5px', fontStyle: 'italic'}}>{a.target_language}</div>}
+                                        <p style={{fontSize: '11px', color: '#666', marginTop: '5px'}}>{a.description}</p>
                                     </div>
                                 ))}
                             </div>
@@ -191,7 +182,8 @@
                 </div>
             );
         }
-        const root = ReactDOM.createRoot(document.getElementById('app'));
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
